@@ -1,0 +1,14 @@
+# Packages SimpleController, the suite's core (the editor Bars and Wheels extend),
+# alone (BigWigsMods packager, -m SimpleController/.pkgmeta). Bars and Wheels name
+# it as a required dependency, so the addon sites install it beside them.
+package-as: SimpleController
+
+move-folders:
+  SimpleController/SimpleController: SimpleController
+
+ignore:
+  - README.md
+  - RELEASING.md
+  - SimpleController_Spin
+  - SimpleController_Bars
+  - SimpleController_Wheels

@@ -1,13 +1,18 @@
-# Packages Simple Controller: Wheels with the core it needs (SimpleController), one
-# zip with both folders (BigWigsMods packager, -m SimpleController_Wheels/.pkgmeta).
+# Packages Simple Controller: Wheels alone (BigWigsMods packager,
+# -m SimpleController_Wheels/.pkgmeta). It needs the core, SimpleController, its own
+# project: named here as a required dependency (CurseForge's slug), so the addon
+# sites install it beside this one, and in the .toc's Dependencies for the game.
 package-as: SimpleController_Wheels
 
 move-folders:
   SimpleController_Wheels/SimpleController_Wheels: SimpleController_Wheels
-  SimpleController_Wheels/SimpleController: SimpleController
+
+required-dependencies:
+  - simple-controller
 
 ignore:
   - README.md
   - RELEASING.md
+  - SimpleController
   - SimpleController_Spin
   - SimpleController_Bars
