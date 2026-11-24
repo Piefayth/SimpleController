@@ -163,10 +163,11 @@ local LOAD = [[
     self:SetAttribute("type", t)
 ]]
 
--- The same wheel's button closes it, using what it used last (kept as values,
--- so a rebuild of the wheel cannot turn it into another slot; gone at a
--- /reload), or only closes it while placing. Another wheel's switches to that
--- one. The use runs on whichever edge the macro's /click brought, hence
+-- The same wheel's button again does what the player chose (Settings.lua, the
+-- ring's "wc-again"): nothing (the wheel stays), "last" (it closes, using what it
+-- used last: kept as values, so a rebuild of the wheel cannot turn it into another
+-- slot; gone at a /reload) or "close"; while placing it only closes. Another
+-- wheel's switches to that one. The use runs on whichever edge the macro's /click brought, hence
 -- useOnKeyDown set to it. The button is reached through a macro (the bar slot's
 -- /click), and a macro cannot run a macro: a single /cast line used last is turned
 -- into its spell here, its conditions read as the game reads them
@@ -179,9 +180,11 @@ local OPEN_SNIPPET = [[
     if ring:IsShown() then
         -- read before the hide, which ends placing
         local same = ring:GetAttribute("wc-active") == key and not ring:GetAttribute("wc-placing")
+        local again = ring:GetAttribute("wc-again") or "last"
+        if same and again == "nothing" then return false end
         ring:Hide()
         if not same then
-        elseif ring:GetAttribute(key .. "-last-type") or ring:GetAttribute(key .. "-default-type") then
+        elseif again == "last" and (ring:GetAttribute(key .. "-last-type") or ring:GetAttribute(key .. "-default-type")) then
             local from = ring:GetAttribute(key .. "-last-type") and "-last-" or "-default-"
             local t, a, v = ring:GetAttribute(key .. from .. "type"), ring:GetAttribute(key .. from .. "attr"),
                 ring:GetAttribute(key .. from .. "value")

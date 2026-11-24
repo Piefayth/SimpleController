@@ -8,4 +8,6 @@
 
 **Four or eight slots:** Options > AddOns > Simple Controller: Wheels.
 
+**Its button again while open** (nothing, cast the last one, or close): Options > AddOns > Simple Controller: Wheels.
+
 **Lost a wheel:** it is in your macros, named "Wheel 1", "Wheel 2"...

@@ -18,6 +18,21 @@ function SW.Settings()
 	local keys = {}
 	for key in pairs(wheels) do keys[#keys + 1] = key end
 	table.sort(keys, function(a, b) return (wheels[a].label or a) < (wheels[b].label or b) end)
+	-- a wheel's button pressed again while it is open
+	local AGAIN = { nothing = "Nothing", last = "Cast Previous", close = "Cancel" }
+	local function setAgain(value)
+		SimpleControllerWheelsDB.again = value
+		SW.AfterCombat(function() WCWheelRing:SetAttribute("wc-again", value) end)
+	end
+	setAgain(SimpleControllerWheelsDB.again or "last")
+	local again = Settings.RegisterProxySetting(category, "SCWHEELS_AGAIN", Settings.VarType.String,
+		"Press a wheel's button again", "last",
+		function() return SimpleControllerWheelsDB.again or "last" end, setAgain)
+	Settings.CreateDropdown(category, again, function()
+		local options = Settings.CreateControlTextContainer()
+		for _, value in ipairs({ "nothing", "last", "close" }) do options:Add(value, AGAIN[value]) end
+		return options:GetData()
+	end, "While a wheel is open, its button again: Nothing (it stays open), Cast Previous (what it used last), or Cancel (it closes).")
 	if #keys == 0 then
 		page:AddInitializer(CreateSettingsListSectionHeaderInitializer("No wheels yet: Add Wheel in Edit Action Bars."))
 	end
