@@ -13,7 +13,7 @@
 local _, SW = ...
 
 -- The macro on bar slot `action`, by its name: a macro showing a spell (a wheel's
--- with SetMacroSpell) is given by GetActionInfo as that spell's ID, not the macro's.
+-- by its #showtooltip) is given by GetActionInfo as that spell's ID, not the macro's.
 local function MacroOn(action)
     return GetActionInfo(action) == "macro" and GetActionText(action) or nil
 end

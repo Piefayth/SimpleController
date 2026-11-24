@@ -12,10 +12,6 @@
 local _, CB = ...
 
 local COUNT = 8
--- An empty extra button's slot: Blizzard's empty slot of its keyboard bars, made round
--- by the button's own icon mask (its face buttons' slots carry their button's symbol,
--- meaningless on an extra; its plain round slot is a black void).
-local NEUTRAL_SLOT = "UI-HUD-ActionBar-IconFrame-Slot"
 local FIRST -- the first of their slots, from the layout at login
 local BELOW_BOTTOM = 72 -- clears the bottom bar's own prompt
 local GAP = 8
@@ -39,28 +35,19 @@ local function keys()
 	return out
 end
 
--- Eight round buttons in a row, holding our slots: the template's face-button four
--- (5-8) of two bars of it, since its d-pad four are square, shaped for the d-pad.
--- The second bar only lends its buttons.
+-- Eight round buttons in a row, holding our slots: the suite's own (SimpleController's
+-- Buttons.lua), never Blizzard's action-bar template, whose buttons join Blizzard's
+-- shared button lists.
 local function buildRow(name, box)
-	local bar = CB.InBox(CreateFrame("Frame", name, box, "GamepadActionBarTemplate"), box)
-	local lender = CB.InBox(CreateFrame("Frame", nil, box, "GamepadActionBarTemplate"), box)
+	local bar = CB.InBox(CreateFrame("Frame", name, box), box)
+	bar:SetSize(1, 1)
 	local hidden = CreateFrame("Frame", nil, bar)
 	hidden:Hide()
 	local buttons = {}
-	for _, from in ipairs({ bar, lender }) do
-		from:CollapseActionButtons()
-		from:HideButtonIcons()
-		for i, button in ipairs(from.actionButtons) do
-			if i > 4 then buttons[#buttons + 1] = button else button:SetParent(hidden) end
-		end
-	end
-	lender:Hide()
-	for i, button in ipairs(buttons) do
-		button:SetParent(bar)
-		button:SetAttribute("action", FIRST + i - 1)
-		button:SetID(FIRST + i - 1)
-		button:UpdateAction()
+	for i = 1, COUNT do
+		local button = SimpleController.ActionButton(bar, "Circle")
+		button:SetAction(FIRST + i - 1)
+		buttons[i] = button
 	end
 	bar:Show()
 	local center = CreateFrame("Frame", nil, bar, "SecureHandlerBaseTemplate")
@@ -69,16 +56,6 @@ local function buildRow(name, box)
 	-- each button's key under it: Blizzard's prompt, or its name where Blizzard has no
 	-- picture for it (a paddle, a keyboard key)
 	local row = { bar = bar, buttons = buttons, hidden = hidden, center = center, prompts = {}, names = {} }
-	for _, button in ipairs(buttons) do
-		for i = 1, button.icon:GetNumMaskTextures() do button.SlotArt:AddMaskTexture(button.icon:GetMaskTexture(i)) end
-	end
-	-- Blizzard sets the slot art again when the controller changes: kept neutral
-	local keeper = CreateFrame("Frame", nil, bar)
-	keeper:SetScript("OnUpdate", function()
-		for _, button in ipairs(buttons) do
-			if button.SlotArt:GetAtlas() ~= NEUTRAL_SLOT then button.SlotArt:SetAtlas(NEUTRAL_SLOT) end
-		end
-	end)
 	for i, button in ipairs(buttons) do
 		local prompt = CB.InBox(CreateFrame("Frame", nil, box, "InputPromptOneIconTemplate"), box)
 		prompt:SetUseDropShadow(true)

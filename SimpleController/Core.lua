@@ -68,10 +68,21 @@ function SC.Used()
 	return #SC.bars > 0 or SC.extras ~= nil or #SC.targetActions > 0
 end
 
--- A notice: a line in chat, as other addons print theirs (measured with the taint log on,
--- 2026-11-24).
-function SC.Say(text)
-	DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Simple Controller:|r " .. text) -- rules: ok the player wants chat; measured with the taint log on (2026-11-24)
+-- The suite's notices, each addon's named: lines in a message frame of ours under
+-- Blizzard's error text, fading as it does. Never Blizzard's chat frame: a line an
+-- addon adds there is the addon's, and opening chat in a fight reads it, so the
+-- controller's focus switch runs tainted and every binding and bar it changes is
+-- refused ("Interface action failed", blamed on Bars, 2026-11-24).
+local notices = CreateFrame("MessageFrame", "SimpleControllerNotices", UIParent)
+notices:SetSize(900, 90)
+notices:SetPoint("TOP", UIParent, "TOP", 0, -190)
+notices:SetFrameStrata("DIALOG")
+notices:SetFontObject(GameFontHighlightLarge)
+notices:SetJustifyH("CENTER")
+notices:SetTimeVisible(10)
+notices:SetFadeDuration(2)
+function SC.Say(text, from)
+	notices:AddMessage(("|cffffd100Simple Controller%s:|r %s"):format(from and (": " .. from) or "", text))
 end
 
 local afterCombat = {}

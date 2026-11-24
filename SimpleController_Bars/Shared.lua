@@ -84,11 +84,7 @@ function CB.AfterCombat(fn)
 	if InCombatLockdown() then afterCombat[#afterCombat + 1] = fn else fn() end
 end
 
--- A notice: a line in chat, as other addons print theirs (measured with the taint log on,
--- 2026-11-24).
-function CB.Say(text)
-	DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Simple Controller: Bars:|r " .. text) -- rules: ok the player wants chat; measured with the taint log on (2026-11-24)
-end
+function CB.Say(text) SimpleController.Say(text, "Bars") end
 
 -- A press looks like Blizzard's: the button drops by PRESS_DROP under its pushed
 -- art, done from secure code so it works in a fight. A watch holds `center` (a

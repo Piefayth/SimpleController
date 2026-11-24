@@ -1,4 +1,4 @@
--- The chord bars, on Blizzard's own bar template: up to six chords (CB.CHORDS), a
+-- The chord bars, the suite's own in Blizzard's look (SimpleController.ActionBar): up to six chords (CB.CHORDS), a
 -- shoulder with L2, R2 or both, in any order. Each is a setting (Settings.lua),
 -- applied at the next reload.
 --
@@ -327,17 +327,12 @@ end
 local function buildFace(chord, unit, prefix)
 	local box = CB.Mirror(unit)
 	local face = {
-		small = CB.InBox(CreateFrame("Frame", prefix .. "Rest" .. chord.setting, box, "GamepadActionBarTemplate"), box),
-		bar = CB.InBox(CreateFrame("Frame", prefix .. chord.setting, box, "GamepadActionBarTemplate"), box),
+		small = CB.InBox(SimpleController.ActionBar(box, prefix .. "Rest" .. chord.setting), box),
+		bar = CB.InBox(SimpleController.ActionBar(box, prefix .. chord.setting), box),
 		shrunk = {},
 	}
 	for _, bar in ipairs({ face.small, face.bar }) do
-		for i = 1, 8 do
-			local button = bar.actionButtons[i]
-			button:SetAttribute("action", chord.first + i - 1)
-			button:SetID(chord.first + i - 1)
-			button:UpdateAction()
-		end
+		for i, button in ipairs(bar.actionButtons) do button:SetAction(chord.first + i - 1) end
 	end
 	face.small:CollapseActionButtons()
 	face.bar:ExpandActionButtons()
@@ -413,13 +408,8 @@ local function buildGreyed(edit, groups)
 	local faces = {}
 	for _, group in ipairs(groups) do
 		for _, chord in ipairs(group.chords) do
-			local bar = CB.InBox(CreateFrame("Frame", nil, box, "GamepadActionBarTemplate"), box)
-			for i = 1, 8 do
-				local button = bar.actionButtons[i]
-				button:SetAttribute("action", chord.first + i - 1)
-				button:SetID(chord.first + i - 1)
-				button:UpdateAction()
-			end
+			local bar = CB.InBox(SimpleController.ActionBar(box), box)
+			for i, button in ipairs(bar.actionButtons) do button:SetAction(chord.first + i - 1) end
 			bar:CollapseActionButtons()
 			bar:HideButtonIcons()
 			bar:SetActionButtonsSaturation(1)

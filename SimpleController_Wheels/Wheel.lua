@@ -478,11 +478,16 @@ local function Expand(slots)
     return out, from
 end
 
--- A wheel's bar macros show what a tap of them uses again: SetMacroSpell /
--- SetMacroItem, the game's feedback for a macro that opens with a bare
--- #showtooltip (measured 2026-11-14: the Buffs macro took Mark of the Wild's icon;
--- set after a fight ends, never in one, ShowLast says why). Every macro holding the
--- wheel's line counts.
+-- A wheel's bar macros show what its button uses before anything is picked, in the
+-- game's own words: a #showtooltip line of macro conditions, the slot of the form you
+-- are in first ([form:n], so the button shows leaving it), then the wheel's default.
+-- The game keeps the icon and cooldown from that line. Our code never sets a macro's
+-- spell or icon as you play: a macro changed from addon code has the game refresh
+-- every gamepad bar there and then, as ours, and those bars stay ours until a reload,
+-- refusing to change in the next fight ("Interface action failed", taint.log,
+-- 2026-11-24). So the line is written only when what the wheel holds changes, never
+-- from what a rule finds, and what a tap used last is not shown. Every macro holding
+-- the wheel's line counts.
 local function WheelMacros(key, fn)
     local line = W.Macro(key)
     local global, character = GetNumMacros()
@@ -495,13 +500,8 @@ local function WheelMacros(key, fn)
     end
 end
 
--- What a wheel's button uses before anything was picked: the slot of the form
--- you are in, so pressing it leaves that form, else the wheel's default.
-local function DefaultEntry(wheel, entries)
-    local form = FormName()
-    for _, entry in ipairs(entries) do
-        if form and StandsFor(entry) == form then return entry end
-    end
+-- the wheel's default slot, else its first that does something
+local function WheelDefault(wheel, entries)
     local chosen = entries[wheel.default or 1]
     if chosen and chosen.type then return chosen end
     for _, entry in ipairs(entries) do
@@ -509,11 +509,55 @@ local function DefaultEntry(wheel, entries)
     end
 end
 
--- A chosen icon hides that feedback (measured 2026-11-20), so an icon is worn only
--- while there is no spell or item to show; the icon is out of combat only.
--- GetMacroInfo reports the feedback's icon as the macro's, so what each macro wears
--- is kept here (false: none).
-local wearing = {}
+-- What a wheel's button uses before anything was picked: the slot of the form
+-- you are in, so pressing it leaves that form, else the wheel's default.
+local function DefaultEntry(wheel, entries)
+    local form = FormName()
+    for _, entry in ipairs(entries) do
+        if form and StandsFor(entry) == form then return entry end
+    end
+    return WheelDefault(wheel, entries)
+end
+
+-- a slot a rule found, which changes as the bags do
+local function Found(entry) return entry.from ~= nil and entry.from.rule ~= nil end
+
+-- the spells a slot may stand for: each choice of its conditions, or its spell
+local function Choices(entry)
+    if not entry.show then return entry.type == "spell" and { entry.value } or {} end
+    local out = {}
+    for clause in entry.show:gmatch("[^;]+") do
+        local name = strtrim((clause:gsub("%b[]", "")))
+        if name ~= "" then out[#out + 1] = name end
+    end
+    return out
+end
+
+-- a slot as the #showtooltip line names it: its conditions, spell or item; none for
+-- one a rule found
+local function Named(entry)
+    if not entry or Found(entry) then return nil end
+    if entry.show then return entry.show end
+    if entry.type == "spell" or entry.type == "item" then return entry.value end
+end
+
+local function TooltipLine(wheel, entries)
+    local clauses = {}
+    for form = 1, GetNumShapeshiftForms() do
+        local spell = select(4, GetShapeshiftFormInfo(form))
+        local name = spell and C_Spell.GetSpellName(spell)
+        for _, entry in ipairs(entries) do
+            if name and not Found(entry) and tContains(Choices(entry), name) then
+                clauses[#clauses + 1] = ("[form:%d] %s"):format(form, name)
+                break
+            end
+        end
+    end
+    clauses[#clauses + 1] = Named(WheelDefault(wheel, entries))
+    if #clauses == 0 then return "#showtooltip", false end
+    return "#showtooltip " .. table.concat(clauses, "; "), true
+end
+
 -- EditMacro takes a file ID (a path left the macro with no icon at all, 2026-11-20)
 local iconProbe = ring:CreateTexture()
 iconProbe:Hide()
@@ -523,46 +567,18 @@ local function IconID(icon)
     return iconProbe:GetTextureFileID()
 end
 local EMPTY_ICON = IconID([[Interface\Icons\INV_Gizmo_02]]) -- the suite's own (its .toc's IconTexture)
--- Never in a fight: setting a macro's spell or icon has the game update every bar
--- button holding it there and then, as our code, and in a fight with secret values
--- Blizzard's buttons then fail on their cooldowns ("Secret values are only allowed
--- during untainted execution", a burst of errors in a dungeon, 2026-11-24).
-local function ShowLast(key)
-    if InCombatLockdown() then return SW.AfterCombat(function() ShowLast(key) end) end
-    local from = ring:GetAttribute(key .. "-last-type") and "-last-" or "-default-"
-    local attr, value = ring:GetAttribute(key .. from .. "attr"), ring:GetAttribute(key .. from .. "value")
-    local entry
-    for _, each in ipairs(ringData[key] or {}) do
-        if each.attr == attr and each.value == value then entry = each break end
-    end
-    local set = (entry and entry.show or attr == "spell") and SetMacroSpell or (attr == "item" and SetMacroItem)
-    local shown = entry and entry.show and StandsFor(entry) or value
-    local wheel = SimpleControllerWheelsDB.wheels[key]
-    -- nothing to show (an empty wheel): the suite's gear, a chosen icon, which hides
-    -- the spell the macro showed before. The question mark (134400) is no icon to the
-    -- game, the automatic one, and the old spell stayed (2026-11-24).
-    local icon = not set and (IconID(entry and entry.icon or wheel and wheel.icon) or EMPTY_ICON) or false
-    WheelMacros(key, function(index)
-        local name = GetMacroInfo(index)
-        if wearing[name] ~= icon then
-            EditMacro(index, nil, icon or 134400)
-            wearing[name] = icon
-        end
-        if set then pcall(set, index, shown) end
-    end)
-end
-ring:HookScript("OnHide", function()
-    local key = ring:GetAttribute("wc-active")
-    if key then ShowLast(key) end
-end)
 
--- the macro text change is out of combat only, so it is made at each rebuild:
--- a bare #showtooltip on top, then the icon the wheel should wear now
-local function PrepareMacros(key)
+-- the macro line rewritten when it says something else; the icon with it: the
+-- automatic one (134400) when the line names something, else the wheel's own
+-- (a chosen icon hides the line's, measured 2026-11-20)
+local function PrepareMacros(key, wheel, entries)
+    local line, names = TooltipLine(wheel, entries)
+    local icon = names and 134400 or IconID(wheel.icon) or EMPTY_ICON
     WheelMacros(key, function(index, body)
-        if not body:find("^#showtooltip") then EditMacro(index, nil, 134400, "#showtooltip\n" .. body) end
+        local first, rest = body:match("^(#showtooltip[^\n]*)\n(.*)$")
+        if first == line then return end
+        EditMacro(index, nil, icon, line .. "\n" .. (rest or body))
     end)
-    ShowLast(key)
 end
 
 function W.Rebuild(quiet)
@@ -626,7 +642,7 @@ function W.Rebuild(quiet)
         ring:SetAttribute(key .. "-default-type", default and default.type)
         ring:SetAttribute(key .. "-default-attr", default and default.attr)
         ring:SetAttribute(key .. "-default-value", default and default.value)
-        PrepareMacros(key)
+        PrepareMacros(key, wheel, entries)
     end
     return true
 end
@@ -714,7 +730,7 @@ function SW.NewWheel()
     local n = 1
     while SimpleControllerWheelsDB.wheels["w" .. n] or GetMacroIndexByName("Wheel " .. n) > 0 do n = n + 1 end
     local key, label = "w" .. n, "Wheel " .. n
-    if not CreateMacro(label, 134400, "#showtooltip\n" .. W.Macro(key), true) then
+    if not CreateMacro(label, EMPTY_ICON, "#showtooltip\n" .. W.Macro(key), true) then
         return Print("no new wheel: its macro could not be made")
     end
     -- four-way: the eight-way wheel's diagonals are hard to hit with a stick

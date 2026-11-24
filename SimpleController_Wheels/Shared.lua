@@ -2,11 +2,7 @@
 -- controller's glyphs.
 local _, SW = ...
 
--- A notice: a line in chat, as other addons print theirs (measured with the taint log on,
--- 2026-11-24).
-function SW.Say(text)
-	DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Simple Controller: Wheels:|r " .. text) -- rules: ok the player wants chat; measured with the taint log on (2026-11-24)
-end
+function SW.Say(text) SimpleController.Say(text, "Wheels") end
 
 local afterCombat = {}
 local events = CreateFrame("Frame")

@@ -8,8 +8,8 @@
 -- editor closes itself, untainted, and ours opens in its place, holding what it held.
 --
 -- Ours is the same screen, made of the same parts on frames of ours: the shade, the
--- info box (its border, title box and Blizzard's own words), Blizzard's bar template
--- for every bar (theirs of play and ours, each where it is in play, the one the
+-- info box (its border, title box and Blizzard's own words), the suite's own bars in
+-- Blizzard's look (Buttons.lua) for every bar (theirs of play and ours, each where it is in play, the one the
 -- triggers or a chord pick grown and lit), the controller's focus taken off the window
 -- under it. Binding: a press puts the spell there and the screen closes. Editing: a
 -- press picks up, the next puts down (what was there is then held, as Blizzard's
@@ -167,8 +167,7 @@ local PROMPT_Y = -35 -- where Blizzard's XML puts each bar's trigger prompt
 local function barPair(keys)
 	local pair = {}
 	for _, layout in ipairs({ "small", "big" }) do
-		-- the template fixes its own strata (LOW): set to the screen's, over its shade
-		local bar = CreateFrame("Frame", nil, screen, "GamepadActionBarTemplate")
+		local bar = SC.ActionBar(screen)
 		bar:SetFrameStrata(screen:GetFrameStrata())
 		if layout == "small" then bar:CollapseActionButtons() else bar:ExpandActionButtons() end
 		bar:HideButtonIcons()
@@ -191,11 +190,7 @@ local function setPair(pair, slots, small, big)
 		local bar = pair[layout]
 		for i, button in ipairs(bar.actionButtons) do
 			local slot = slots[i]
-			if slot then
-				button:SetAttribute("action", slot)
-				button:SetID(slot)
-				button:UpdateAction()
-			end
+			if slot then button:SetAction(slot) end
 		end
 		bar:SetScale(anchor:GetEffectiveScale() / screen:GetEffectiveScale())
 		bar:ClearAllPoints()
