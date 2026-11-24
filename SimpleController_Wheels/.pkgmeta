@@ -8,7 +8,7 @@ move-folders:
   SimpleController_Wheels/SimpleController_Wheels: SimpleController_Wheels
 
 required-dependencies:
-  - simple-controller
+  - simplecontroller
 
 ignore:
   - README.md

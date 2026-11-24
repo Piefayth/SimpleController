@@ -6,6 +6,8 @@
 ## IconTexture: Interface\Icons\INV_Misc_Gear_01
 ## Category: Simple Controller
 ## Version: @project-version@
+## X-Curse-Project-ID: 1828759
+## X-Wago-ID: ZKbqLy61
 
 Shared.lua
 Ring.lua

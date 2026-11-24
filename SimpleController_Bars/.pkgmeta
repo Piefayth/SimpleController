@@ -8,7 +8,7 @@ move-folders:
   SimpleController_Bars/SimpleController_Bars: SimpleController_Bars
 
 required-dependencies:
-  - simple-controller
+  - simplecontroller
 
 ignore:
   - README.md

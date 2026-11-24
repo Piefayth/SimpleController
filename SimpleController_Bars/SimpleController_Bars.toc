@@ -5,6 +5,8 @@
 ## IconTexture: Interface\Icons\INV_Gizmo_02
 ## Category: Simple Controller
 ## Version: @project-version@
+## X-Curse-Project-ID: 1828754
+## X-Wago-ID: j6jAk0NR
 ## Dependencies: SimpleController
 
 Model.lua

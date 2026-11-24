@@ -4,6 +4,8 @@
 ## IconTexture: Interface\Icons\INV_Gizmo_02
 ## Category: Simple Controller
 ## Version: @project-version@
+## X-Curse-Project-ID: 1828751
+## X-Wago-ID: E6gzpnN1
 
 Keys.lua
 Core.lua
