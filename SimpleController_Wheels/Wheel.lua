@@ -480,8 +480,9 @@ end
 
 -- A wheel's bar macros show what a tap of them uses again: SetMacroSpell /
 -- SetMacroItem, the game's feedback for a macro that opens with a bare
--- #showtooltip (measured 2026-11-14, in combat too: the Buffs macro took Mark
--- of the Wild's icon). Every macro holding the wheel's line counts.
+-- #showtooltip (measured 2026-11-14: the Buffs macro took Mark of the Wild's icon;
+-- set after a fight ends, never in one, ShowLast says why). Every macro holding the
+-- wheel's line counts.
 local function WheelMacros(key, fn)
     local line = W.Macro(key)
     local global, character = GetNumMacros()
@@ -522,7 +523,12 @@ local function IconID(icon)
     return iconProbe:GetTextureFileID()
 end
 local EMPTY_ICON = IconID([[Interface\Icons\INV_Gizmo_02]]) -- the suite's own (its .toc's IconTexture)
+-- Never in a fight: setting a macro's spell or icon has the game update every bar
+-- button holding it there and then, as our code, and in a fight with secret values
+-- Blizzard's buttons then fail on their cooldowns ("Secret values are only allowed
+-- during untainted execution", a burst of errors in a dungeon, 2026-11-24).
 local function ShowLast(key)
+    if InCombatLockdown() then return SW.AfterCombat(function() ShowLast(key) end) end
     local from = ring:GetAttribute(key .. "-last-type") and "-last-" or "-default-"
     local attr, value = ring:GetAttribute(key .. from .. "attr"), ring:GetAttribute(key .. from .. "value")
     local entry
@@ -539,12 +545,8 @@ local function ShowLast(key)
     WheelMacros(key, function(index)
         local name = GetMacroInfo(index)
         if wearing[name] ~= icon then
-            if InCombatLockdown() then
-                SW.AfterCombat(function() ShowLast(key) end)
-            else
-                EditMacro(index, nil, icon or 134400)
-                wearing[name] = icon
-            end
+            EditMacro(index, nil, icon or 134400)
+            wearing[name] = icon
         end
         if set then pcall(set, index, shown) end
     end)

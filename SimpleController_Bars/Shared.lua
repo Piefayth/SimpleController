@@ -153,19 +153,19 @@ end
 -- In the editor, one strata up (that of its own dialogs): its frame darkens the screen
 -- with a texture of its own and rises to the top of its strata as it opens (toplevel),
 -- over any box of ours there; its bars are inside it, so above. Blizzard's templates
--- fix their own strata (its bar's is LOW), so each frame put in such a box is lifted
--- too (CB.InBox).
-local mirrors, lifted = {}, {}
+-- fix their own strata (its bar's is LOW), so every frame put in a box of ours takes
+-- the box's (CB.InBox): one left at LOW in Simple Controller's editor sat under its
+-- shade, greyed, its prompts hidden (the extra buttons, 2026-11-24).
+local mirrors = {}
 function CB.InBox(frame, box)
-	if lifted[box] then frame:SetFrameStrata(box:GetFrameStrata()) end
+	frame:SetFrameStrata(box:GetFrameStrata())
 	return frame
 end
 function CB.Mirror(blizzard)
 	if mirrors[blizzard] then return mirrors[blizzard] end
 	local box = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
 	local editor = GamepadActionBarEditFrame
-	lifted[box] = editor ~= nil and blizzard == editor.PageUnit
-	box:SetFrameStrata(lifted[box] and "DIALOG" or blizzard:GetFrameStrata())
+	box:SetFrameStrata(editor ~= nil and blizzard == editor.PageUnit and "DIALOG" or blizzard:GetFrameStrata())
 	box:SetFrameLevel(blizzard:GetFrameLevel() + 10)
 	box:SetSize(1, 1)
 	box:SetPoint("CENTER")
