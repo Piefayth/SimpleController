@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: Simple Controller
+## Notes: The core of Simple Controller's bar addons: Blizzard's bind screen and Edit Action Bars, extended to theirs (bare Square on Blizzard's).
+## IconTexture: Interface\Icons\INV_Gizmo_02
+## Category: Simple Controller
+## Version: @project-version@
+
+Keys.lua
+Core.lua
+Editor.lua

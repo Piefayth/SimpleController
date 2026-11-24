@@ -1,7 +1,11 @@
-# On a pushed tag: each addon in the matrix packaged as its own zip by the
+# On a pushed tag naming an addon, that addon packaged as its own zip by the
 # BigWigsMods packager and attached to a GitHub Release (the workflow's own token),
-# and uploaded to every site whose token is set and whose project ID is in the .toc.
-# A site whose secret is empty is skipped by the packager without failing the job.
+# and uploaded to every site whose token is set and whose project ID is in its .toc.
+#   spin-v1.2.0     Simple Controller: Spin
+#   bars-v0.1.0     Simple Controller: Bars, with the core it needs
+#   wheels-v0.1.0   Simple Controller: Wheels, with the core it needs
+# A tag with "alpha" or "beta" in it is a prerelease (bars-v0.1.0-beta). A site whose
+# secret is empty, or whose ID is not in the .toc, is skipped without failing the job.
 # The packager (v2.7.0) skips WoWInterface for Forever builds (RELEASING.md).
 name: Release
 
@@ -17,8 +21,13 @@ jobs:
       contents: write # the GitHub Release
     strategy:
       matrix:
-        addon:
-          - SimpleController_Spin
+        include:
+          - addon: SimpleController_Spin
+            tag: spin-
+          - addon: SimpleController_Bars
+            tag: bars-
+          - addon: SimpleController_Wheels
+            tag: wheels-
     env:
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
@@ -26,8 +35,10 @@ jobs:
       GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }} # the workflow's own token, nothing to add
     steps:
       - uses: actions/checkout@v4
+        if: startsWith(github.ref_name, matrix.tag)
         with:
           fetch-depth: 0 # the packager's changelog and version come from the history and tags
       - uses: BigWigsMods/packager@v2
+        if: startsWith(github.ref_name, matrix.tag)
         with:
           args: -m ${{ matrix.addon }}/.pkgmeta

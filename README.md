@@ -18,19 +18,35 @@ off, switch it off in the AddOns list like any addon.
 
 More detail: [SimpleController_Spin/README.md](SimpleController_Spin/README.md).
 
+## Simple Controller: Bars (beta)
+
+More controller bars beside Blizzard's own: hold a shoulder with L2, R2 or both
+for eight more buttons each, plus extra buttons on any key you bind (L3, R3,
+paddles). Edited in Blizzard's own bind and Edit Action Bar screens, extended to
+these bars. How to use it: [SimpleController_Bars/README.md](SimpleController_Bars/README.md).
+
+## Simple Controller: Wheels (beta)
+
+Radial wheels on your bars: press a wheel's button, aim the right stick, let go.
+Make them and fill them from the spellbook and Edit Action Bar. How to use it:
+[SimpleController_Wheels/README.md](SimpleController_Wheels/README.md).
+
+Bars and Wheels both need the core, Simple Controller, which comes in their zip.
+
 ## Install
 
-1. Download `SimpleController_Spin-<version>-forever.zip` from the
-   [Releases page](https://github.com/piefayth/SimpleController/releases).
-2. Extract it into `World of Warcraft\_forever_\Interface\AddOns`. The folder
-   must end up as `Interface\AddOns\SimpleController_Spin` (with
-   `SimpleController_Spin.toc` directly inside it, not in a second folder of
-   the same name).
+1. Download the addon's zip (for example `SimpleController_Spin-<version>-forever.zip`)
+   from the [Releases page](https://github.com/piefayth/SimpleController/releases).
+2. Extract it into `World of Warcraft\_forever_\Interface\AddOns`. Each folder in
+   the zip must end up directly in `Interface\AddOns` (for example
+   `Interface\AddOns\SimpleController_Spin\SimpleController_Spin.toc`, not in a
+   second folder of the same name). Bars' and Wheels' zips hold two folders, the
+   addon and `SimpleController`.
 3. Restart the game. A new addon folder is only seen after a full restart, not
    a `/reload`.
 
-- CurseForge: coming soon.
-- Wago Addons: coming soon.
+- CurseForge: Spin now, the others soon.
+- Wago Addons: Spin now, the others soon.
 
 ---
 

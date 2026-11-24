@@ -1,0 +1,13 @@
+# Packages Simple Controller: Wheels with the core it needs (SimpleController), one
+# zip with both folders (BigWigsMods packager, -m SimpleController_Wheels/.pkgmeta).
+package-as: SimpleController_Wheels
+
+move-folders:
+  SimpleController_Wheels/SimpleController_Wheels: SimpleController_Wheels
+  SimpleController_Wheels/SimpleController: SimpleController
+
+ignore:
+  - README.md
+  - RELEASING.md
+  - SimpleController_Spin
+  - SimpleController_Bars

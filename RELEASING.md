@@ -1,9 +1,11 @@
 # Releasing
 
-A pushed tag (`v1.0.0`) releases every addon in the workflow's `matrix`
-(today only Simple Controller: Spin). `.github/workflows/release.yml` runs the
-BigWigsMods packager once per addon. It makes the zip
-(`SimpleController_Spin-v1.0.0-forever.zip`), attaches it to a GitHub Release
+A pushed tag naming an addon releases that addon: `spin-v1.0.1` Spin,
+`bars-v0.1.0` Bars, `wheels-v0.1.0` Wheels (Bars' and Wheels' zips carry the core,
+`SimpleController`, beside them). A tag with `alpha` or `beta` in it is a
+prerelease. `.github/workflows/release.yml` runs the BigWigsMods packager for the
+named addon. It makes the zip (`SimpleController_Spin-spin-v1.0.1-forever.zip`),
+attaches it to a GitHub Release
 named after the tag, and uploads it to each addon site that has both a token
 (a repository secret) and a project ID (in the addon's `.toc`).
 
@@ -23,8 +25,8 @@ MIT (`LICENSE`). CurseForge and Wago ask for it when a project is created.
 
 ## 2. Optional: a first tag with no sites
 
-    git tag v0.1.0
-    git push origin v0.1.0
+    git tag bars-v0.1.0-beta
+    git push origin bars-v0.1.0-beta
 
 With no site secrets, this only makes the GitHub Release with the zip (watch
 GitHub > Actions > Release, then the Releases page). Use it to check the zip,
@@ -109,11 +111,11 @@ uploads).
 
     git commit -am "Site project IDs"
     git push
-    git tag v1.0.0
-    git push origin v1.0.0
+    git tag spin-v1.0.1
+    git push origin spin-v1.0.1
 
 The tag starts GitHub > Actions > Release. When it finishes, the Releases page
-has `v1.0.0` with the zip and a changelog made from the commits since the last
+has `spin-v1.0.1` with the zip and a changelog made from the commits since the last
 tag, and each site with a secret has the new file. In the job's log, check the
 CurseForge and Wago lines `Uploading ... (<game version> release)`: they should
 name `1.60.1`. If one says "No CurseForge game version match", the site has no

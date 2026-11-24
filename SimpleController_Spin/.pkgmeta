@@ -10,3 +10,6 @@ move-folders:
 ignore:
   - README.md
   - RELEASING.md
+  - SimpleController
+  - SimpleController_Bars
+  - SimpleController_Wheels

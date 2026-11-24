@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: Simple Controller: Wheels
+## Notes: Radial wheels on your bars: in Edit Action Bars, an empty slot offers New wheel; bind a spell, item or macro onto a wheel's slot and flick where it goes. Ring adapted from Improved Forever (markg, MIT).
+## Dependencies: SimpleController
+## SavedVariablesPerCharacter: SimpleControllerWheelsDB
+## IconTexture: Interface\Icons\INV_Misc_Gear_01
+## Category: Simple Controller
+## Version: @project-version@
+
+Shared.lua
+Ring.lua
+Wheel.lua
+Place.lua
+Settings.lua

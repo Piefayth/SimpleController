@@ -1,0 +1,15 @@
+# Packages Simple Controller: Bars with the core it needs (SimpleController), one zip
+# with both folders (BigWigsMods packager, -m SimpleController_Bars/.pkgmeta). The
+# packager copies the whole repository into .release/SimpleController_Bars; the two
+# folders are moved up to be the zip's addons, the rest is ignored.
+package-as: SimpleController_Bars
+
+move-folders:
+  SimpleController_Bars/SimpleController_Bars: SimpleController_Bars
+  SimpleController_Bars/SimpleController: SimpleController
+
+ignore:
+  - README.md
+  - RELEASING.md
+  - SimpleController_Spin
+  - SimpleController_Wheels
