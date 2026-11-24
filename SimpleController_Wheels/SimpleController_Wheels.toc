@@ -13,4 +13,5 @@ Shared.lua
 Ring.lua
 Wheel.lua
 Place.lua
+Icons.lua
 Settings.lua

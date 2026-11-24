@@ -144,8 +144,8 @@ SecureHandlerSetFrameRef(ring, "sampler", sampler)
 SecureHandlerSetFrameRef(ring, "driver", SecureStateDriverManager)
 
 -- Loads a use onto `self` (type `t`, attribute `a` = `v`), remembered as the
--- wheel's last (before the ring closes, whose OnHide shows it on the macro),
--- and closes the ring; the secure action then runs it.
+-- wheel's last (Icons.lua shows it on the wheel's slots), and closes the ring; the
+-- secure action then runs it.
 local LOAD = [[
     ring:SetAttribute(key .. "-last-type", t)
     ring:SetAttribute(key .. "-last-attr", a)
@@ -314,15 +314,15 @@ end)
 -- An item slot shows how many are carried, as a bar button does: a stack or a
 -- consumable (its charges counted), never a single thing like the Hearthstone.
 -- Read at each opening, so a fight's use is counted too.
+local function CountOf(id)
+    local consumable = C_Item.IsConsumableItem(id)
+    if consumable or (C_Item.GetItemMaxStackSizeByID(id) or 1) > 1 then
+        return tostring(C_Item.GetItemCount(id, false, consumable))
+    end
+end
 local function Counts(entries)
     for _, entry in ipairs(entries) do
-        local id = entry.itemID
-        if id then
-            local consumable = C_Item.IsConsumableItem(id)
-            if consumable or (C_Item.GetItemMaxStackSizeByID(id) or 1) > 1 then
-                entry.count = tostring(C_Item.GetItemCount(id, false, consumable))
-            end
-        end
+        if entry.itemID then entry.count = CountOf(entry.itemID) end
     end
 end
 -- The spell a slot stands for right now.
@@ -478,28 +478,6 @@ local function Expand(slots)
     return out, from
 end
 
--- A wheel's bar macros show what its button uses before anything is picked, in the
--- game's own words: a #showtooltip line of macro conditions, the slot of the form you
--- are in first ([form:n], so the button shows leaving it), then the wheel's default.
--- The game keeps the icon and cooldown from that line. Our code never sets a macro's
--- spell or icon as you play: a macro changed from addon code has the game refresh
--- every gamepad bar there and then, as ours, and those bars stay ours until a reload,
--- refusing to change in the next fight ("Interface action failed", taint.log,
--- 2026-11-24). So the line is written only when what the wheel holds changes, never
--- from what a rule finds, and what a tap used last is not shown. Every macro holding
--- the wheel's line counts.
-local function WheelMacros(key, fn)
-    local line = W.Macro(key)
-    local global, character = GetNumMacros()
-    local base = Constants.MacroConsts.MAX_ACCOUNT_MACROS
-    for index = 1, base + character do
-        if index <= global or index > base then
-            local body = select(3, GetMacroInfo(index))
-            if body and body:find(line, 1, true) then fn(index, body) end
-        end
-    end
-end
-
 -- the wheel's default slot, else its first that does something
 local function WheelDefault(wheel, entries)
     local chosen = entries[wheel.default or 1]
@@ -519,46 +497,7 @@ local function DefaultEntry(wheel, entries)
     return WheelDefault(wheel, entries)
 end
 
--- a slot a rule found, which changes as the bags do
-local function Found(entry) return entry.from ~= nil and entry.from.rule ~= nil end
-
--- the spells a slot may stand for: each choice of its conditions, or its spell
-local function Choices(entry)
-    if not entry.show then return entry.type == "spell" and { entry.value } or {} end
-    local out = {}
-    for clause in entry.show:gmatch("[^;]+") do
-        local name = strtrim((clause:gsub("%b[]", "")))
-        if name ~= "" then out[#out + 1] = name end
-    end
-    return out
-end
-
--- a slot as the #showtooltip line names it: its conditions, spell or item; none for
--- one a rule found
-local function Named(entry)
-    if not entry or Found(entry) then return nil end
-    if entry.show then return entry.show end
-    if entry.type == "spell" or entry.type == "item" then return entry.value end
-end
-
-local function TooltipLine(wheel, entries)
-    local clauses = {}
-    for form = 1, GetNumShapeshiftForms() do
-        local spell = select(4, GetShapeshiftFormInfo(form))
-        local name = spell and C_Spell.GetSpellName(spell)
-        for _, entry in ipairs(entries) do
-            if name and not Found(entry) and tContains(Choices(entry), name) then
-                clauses[#clauses + 1] = ("[form:%d] %s"):format(form, name)
-                break
-            end
-        end
-    end
-    clauses[#clauses + 1] = Named(WheelDefault(wheel, entries))
-    if #clauses == 0 then return "#showtooltip", false end
-    return "#showtooltip " .. table.concat(clauses, "; "), true
-end
-
--- EditMacro takes a file ID (a path left the macro with no icon at all, 2026-11-20)
+-- CreateMacro takes a file ID (a path left the macro with no icon at all, 2026-11-20)
 local iconProbe = ring:CreateTexture()
 iconProbe:Hide()
 local function IconID(icon)
@@ -567,19 +506,6 @@ local function IconID(icon)
     return iconProbe:GetTextureFileID()
 end
 local EMPTY_ICON = IconID([[Interface\Icons\INV_Gizmo_02]]) -- the suite's own (its .toc's IconTexture)
-
--- the macro line rewritten when it says something else; the icon with it: the
--- automatic one (134400) when the line names something, else the wheel's own
--- (a chosen icon hides the line's, measured 2026-11-20)
-local function PrepareMacros(key, wheel, entries)
-    local line, names = TooltipLine(wheel, entries)
-    local icon = names and 134400 or IconID(wheel.icon) or EMPTY_ICON
-    WheelMacros(key, function(index, body)
-        local first, rest = body:match("^(#showtooltip[^\n]*)\n(.*)$")
-        if first == line then return end
-        EditMacro(index, nil, icon, line .. "\n" .. (rest or body))
-    end)
-end
 
 function W.Rebuild(quiet)
     if InCombatLockdown() then
@@ -627,7 +553,7 @@ function W.Rebuild(quiet)
         ring:SetAttribute(key .. "-count", #entries)
         ringData[key] = entries
         -- what it used last, gone from it (taken off, replaced): forgotten, so its
-        -- macro shows what is on it
+        -- slots show what is on it
         local lastAttr, lastValue = ring:GetAttribute(key .. "-last-attr"), ring:GetAttribute(key .. "-last-value")
         if lastAttr then
             local still = false
@@ -642,7 +568,6 @@ function W.Rebuild(quiet)
         ring:SetAttribute(key .. "-default-type", default and default.type)
         ring:SetAttribute(key .. "-default-attr", default and default.attr)
         ring:SetAttribute(key .. "-default-value", default and default.value)
-        PrepareMacros(key, wheel, entries)
     end
     return true
 end
@@ -671,6 +596,27 @@ local function Open(key, how)
     SecureHandlerExecute(ring, ("self:RunAttribute('wc-show', %q)"):format(key))
     sampler:SetAttribute("state-aim", nil)
 end
+-- What a wheel's bar slots show (Icons.lua): what its button uses on a tap now, its
+-- last, else its default (a slot of conditions as they stand), else the suite's gear;
+-- its icon, and its count as an item slot counts (none: nil).
+function SW.WheelShown(key)
+    local entries = ringData[key]
+    if not entries then return nil end
+    local from = ring:GetAttribute(key .. "-last-type") and "-last-" or "-default-"
+    local attr, value = ring:GetAttribute(key .. from .. "attr"), ring:GetAttribute(key .. from .. "value")
+    if not attr then return EMPTY_ICON end
+    for _, entry in ipairs(entries) do
+        if entry.attr == attr and entry.value == value then
+            local shown = entry.show and StandsFor(entry)
+            return shown and C_Spell.GetSpellTexture(shown) or entry.icon or EMPTY_ICON,
+                entry.itemID and CountOf(entry.itemID)
+        end
+    end
+    -- a one-line /cast used last is kept as its spell (OPEN_SNIPPET)
+    if attr == "spell" then return C_Spell.GetSpellTexture(value) or EMPTY_ICON end
+    return EMPTY_ICON
+end
+
 function SW.Place(key, slot, label, editing, done)
     Open(key, { slot = slot, label = label, editing = editing, done = done })
 end
@@ -730,7 +676,7 @@ function SW.NewWheel()
     local n = 1
     while SimpleControllerWheelsDB.wheels["w" .. n] or GetMacroIndexByName("Wheel " .. n) > 0 do n = n + 1 end
     local key, label = "w" .. n, "Wheel " .. n
-    if not CreateMacro(label, EMPTY_ICON, "#showtooltip\n" .. W.Macro(key), true) then
+    if not CreateMacro(label, EMPTY_ICON, W.Macro(key), true) then
         return Print("no new wheel: its macro could not be made")
     end
     -- four-way: the eight-way wheel's diagonals are hard to hit with a stick
@@ -791,9 +737,7 @@ function W.List()
     end
 end
 
--- EditMacro fires UPDATE_MACROS inside the call (a stack overflow, 2026-11-20), and
--- a rebuild edits macros: what the game reports waits for the next frame, so a
--- rebuild never runs inside another.
+-- The game's events come in bursts (the bags, macros): one rebuild a frame.
 local queued
 local function RebuildNextFrame()
     if queued then return end

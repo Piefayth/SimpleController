@@ -280,6 +280,9 @@ function SC.ActionBar(parent, name)
 	return bar
 end
 
+-- every button of ours, for addons that dress them (Wheels' icons)
+function SC.EachActionButton(fn) for button in pairs(all) do fn(button) end end
+
 -- One frame of ours keeps every button current, from the game's events alone.
 local events = CreateFrame("Frame")
 local function each(fn) for button in pairs(all) do fn(button) end end

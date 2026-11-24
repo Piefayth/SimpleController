@@ -12,14 +12,14 @@
 -- held (SW.Take). A new wheel never put down goes when the editor closes, macro and all.
 local _, SW = ...
 
--- The macro on bar slot `action`, by its name: a macro showing a spell (a wheel's
--- by its #showtooltip) is given by GetActionInfo as that spell's ID, not the macro's.
+-- The macro on bar slot `action`, by its name: a macro showing a spell (by its
+-- #showtooltip) is given by GetActionInfo as that spell's ID, not the macro's.
 local function MacroOn(action)
     return GetActionInfo(action) == "macro" and GetActionText(action) or nil
 end
 
 -- the wheel whose macro is on bar slot `action`
-local function WheelOn(action)
+function SW.WheelOn(action)
     local name = MacroOn(action)
     local body = name and GetMacroBody(name)
     if not body then return end
@@ -76,7 +76,7 @@ SimpleController.AddTargetAction({
             done()
             return SW.Say("Wheel: " .. why .. ", so it cannot go on a wheel")
         end
-        local key = WheelOn(action)
+        local key = SW.WheelOn(action)
         if not key then
             -- a new wheel in that slot, over whatever was there
             local label
@@ -103,8 +103,8 @@ SimpleController.AddTargetAction({
 SimpleController.AddTargetAction({
     key = "PAD4",
     pick = { label = "Open wheel", choose = "Choose a wheel to take from." },
-    target = function(action) return WheelOn(action) ~= nil end,
-    run = function(action, _, _, done) SW.Take(WheelOn(action), done) end,
+    target = function(action) return SW.WheelOn(action) ~= nil end,
+    run = function(action, _, _, done) SW.Take(SW.WheelOn(action), done) end,
 })
 
 SimpleController.OnEditor(function(open)
