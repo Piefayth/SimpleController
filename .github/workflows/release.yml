@@ -29,8 +29,12 @@ jobs:
             tag: core-
           - addon: SimpleController_Bars
             tag: bars-
+            bundle: Simple-Controller-Bars
+            title: "Simple Controller: Bars"
           - addon: SimpleController_Wheels
             tag: wheels-
+            bundle: Simple-Controller-Wheels
+            title: "Simple Controller: Wheels"
     env:
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
@@ -45,3 +49,35 @@ jobs:
         if: startsWith(github.ref_name, matrix.tag)
         with:
           args: -m ${{ matrix.addon }}/.pkgmeta
+      # GitHub only, for whoever installs by hand: the addon with the core it needs in
+      # one zip, named to be the one to click, and said first in the release notes. The
+      # sites, and release.json (which addon managers read), keep the addon's own zip.
+      # The core is packaged from the same commit, with no upload (-d).
+      - uses: BigWigsMods/packager@v2
+        if: startsWith(github.ref_name, matrix.tag) && matrix.bundle
+        with:
+          args: -d -r ${{ github.workspace }}/.release-core -m SimpleController/.pkgmeta # an absolute path: the packager refuses a relative one
+      - name: The download-this zip
+        if: startsWith(github.ref_name, matrix.tag) && matrix.bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          NAME: DOWNLOAD-THIS-${{ matrix.bundle }}-${{ github.ref_name }}.zip
+          TITLE: ${{ matrix.title }}
+        run: |
+          set -euo pipefail
+          mkdir bundle
+          for zip in .release/*.zip .release-core/*.zip; do unzip -q "$zip" -d bundle; done
+          (cd bundle && zip -qr "../$NAME" .)
+          gh release upload "$TAG" "$NAME"
+          notes=$(gh release view "$TAG" --json body --jq .body)
+          {
+            echo "## ⬇️ Download **\`$NAME\`**"
+            echo
+            echo "Unzip it into \`World of Warcraft/_forever_/Interface/AddOns\`. It has $TITLE and the Simple Controller core it needs."
+            echo
+            echo "---"
+            echo
+            echo "$notes"
+          } > notes.md
+          gh release edit "$TAG" --notes-file notes.md

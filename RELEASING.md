@@ -5,7 +5,10 @@ A pushed tag naming an addon releases that addon: `spin-v1.0.1` Spin,
 Wheels. Bars and Wheels require the core, its own project: their `.pkgmeta` names it
 (`required-dependencies`, its CurseForge slug, `simplecontroller`, once the core is public) so CurseForge
 installs it with them; on Wago it is set on each project's page (Relations). Release
-the core first when a Bars or Wheels release needs a newer one. A tag with `alpha` or `beta` in it is a
+the core first when a Bars or Wheels release needs a newer one. A Bars or Wheels
+GitHub Release also gets `DOWNLOAD-THIS-<addon>-<tag>.zip`, the addon with the core
+packaged from the same commit, for installing by hand; its notes open by saying so.
+The sites and `release.json` (read by addon managers) keep the addon's own zip. A tag with `alpha` or `beta` in it is a
 prerelease. `.github/workflows/release.yml` runs the BigWigsMods packager for the
 named addon. It makes the zip (`SimpleController_Spin-spin-v1.0.1-forever.zip`),
 attaches it to a GitHub Release
