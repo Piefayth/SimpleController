@@ -36,6 +36,23 @@ local SHAPES = {
 	},
 }
 local EMPTY_SLOT = "UI-HUD-ActionBar-IconFrame-Slot"
+-- A bar's empty slots wear their button: the d-pad's arrows, the face buttons'
+-- symbols in the controller's icon set (InputDeviceIconSetManager's), as Blizzard's
+-- bars do (its INPUT_DEVICE_ACTION_BUTTON_TEXTURE_SETS, ActionBarButton.lua, local
+-- to its file, so its atlas names are here). By the button's place on the bar, 1-8.
+local DPAD = { "dpadleft", "dpadup", "dpadright", "dpaddown" }
+local FACES = {
+	Generic = { "xbox-x", "xbox-y", "xbox-b", "xbox-a" },
+	Letters = { "xbox-x", "xbox-y", "xbox-b", "xbox-a" },
+	Shapes = { "ps-square", "ps-triangle", "ps-circle", "ps-cross" },
+	Reverse = { "xbox-y", "xbox-x", "xbox-a", "xbox-b" },
+}
+local function emptyArt(place)
+	if not place then return EMPTY_SLOT end
+	if place <= 4 then return ("gamepad-actionbar-squareslot-generic-%s-normal"):format(DPAD[place]) end
+	local set = FACES[InputDeviceIconSetManager:GetActiveInputDeviceIconSet()] or FACES.Generic
+	return ("gamepad-actionbar-circleslot-%s-normal"):format(set[place - 4])
+end
 local MANA = { 0.5, 0.5, 1 }
 local UNUSABLE = { 0.4, 0.4, 0.4 }
 local FAR = { 0.8, 0.1, 0.1 }
@@ -75,6 +92,7 @@ local function refresh(button)
 	local has = slot and C_ActionBar.HasAction(slot)
 	button.icon:SetTexture(has and C_ActionBar.GetActionTexture(slot) or nil)
 	button.icon:SetShown(has and true or false)
+	button.SlotArt:SetAtlas(emptyArt(button.place))
 	button.SlotArt:SetShown(not has)
 	button.Count:SetText(has and C_ActionBar.GetActionDisplayCount(slot, 9999) or "")
 	button:SetChecked(has and (C_ActionBar.IsCurrentAction(slot) or C_ActionBar.IsAutoRepeatAction(slot)) or false)
@@ -264,6 +282,8 @@ function SC.ActionBar(parent, name)
 			button.ButtonIcon = glyph
 			group["ActionButton" .. i] = button
 			bar.actionButtons[#bar.actionButtons + 1] = button
+			button.place = #bar.actionButtons
+			refresh(button)
 		end
 	end
 	local background = CreateFrame("Frame", nil, bar, "GamepadActionBarEditModeFocusBackground")
@@ -314,4 +334,6 @@ local handlers = {
 	PLAYER_TARGET_CHANGED = function() each(tint) end,
 }
 for event in pairs(handlers) do events:RegisterEvent(event) end
+-- another controller's symbols on the empty face slots
+InputDeviceIconSetManager:RegisterActiveInputDeviceIconSetUpdatedCallback(function() each(refresh) end, events)
 events:SetScript("OnEvent", function(_, event, ...) handlers[event](...) end)
