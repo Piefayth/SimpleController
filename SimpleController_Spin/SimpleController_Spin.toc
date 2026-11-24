@@ -5,7 +5,7 @@
 ## IconTexture: Interface\Icons\Ability_Rogue_Sprint
 ## Category: Simple Controller
 ## Version: @project-version@
-## X-Curse-Project-ID: FILL_ME_CURSEFORGE_PROJECT_ID
+## X-Curse-Project-ID: 1827526
 ## X-Wago-ID: FILL_ME_WAGO_PROJECT_ID
 ## X-WoWI-ID: FILL_ME_WOWINTERFACE_ADDON_ID
 
