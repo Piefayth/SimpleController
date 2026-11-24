@@ -1,14 +1,12 @@
 # Packages Simple Controller: Wheels alone (BigWigsMods packager,
 # -m SimpleController_Wheels/.pkgmeta). It needs the core, SimpleController, its own
-# project: named here as a required dependency (CurseForge's slug), so the addon
-# sites install it beside this one, and in the .toc's Dependencies for the game.
+# project, named in the .toc's Dependencies for the game. CurseForge's relation
+# (required-dependencies: simplecontroller) returns once the core's project is public:
+# CurseForge refuses a relation to one still in moderation (2026-11-24).
 package-as: SimpleController_Wheels
 
 move-folders:
   SimpleController_Wheels/SimpleController_Wheels: SimpleController_Wheels
-
-required-dependencies:
-  - simplecontroller
 
 ignore:
   - README.md
