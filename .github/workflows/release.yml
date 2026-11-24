@@ -1,7 +1,8 @@
 # On a pushed tag: the model tests, then each addon packaged as its own zip by the
 # BigWigsMods packager and uploaded to the GitHub release and to every site whose
 # token is set (CurseForge, Wago, WoWInterface) and whose project ID is in the .toc.
-# A site whose secret is empty is skipped by the packager.
+# A site whose secret is empty is skipped by the packager. The packager (v2.7.0)
+# also skips WoWInterface for Forever builds, with a warning (RELEASING.md).
 name: Release
 
 on:
@@ -33,10 +34,10 @@ jobs:
           - SimpleController_Bars
           - SimpleController_Spin
     env:
-      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
       WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
-      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }} # the workflow's own token, nothing to add
     steps:
       - uses: actions/checkout@v4
         with:
