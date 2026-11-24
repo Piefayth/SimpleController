@@ -1,10 +1,11 @@
 -- Wheels in Simple Controller's editor (Blizzard's bind screen and Edit Action
 -- Bars remade), one target action (SimpleController.AddTargetAction, on bare
 -- Cross, the one face button Blizzard's bind screen leaves free): handed over with
--- (binding, "Place on wheel": the wheels on the bars light to put the spell on;
+-- (binding, "Place on wheel": a wheel or a slot for a new one is chosen at once;
 -- editing, "Add Wheel": a new, empty wheel is held, to put down like a
 -- spell), and, holding a spell, item or macro, "Place on wheel": the wheels on the
--- bars light, and the one picked opens to flick where it goes (SW.Place; in Edit
+-- bars light, and every other slot (a new wheel goes there, over what was there, and
+-- opens); the one picked opens to flick where it goes (SW.Place; in Edit
 -- Action Bars what was there comes back held, a swap as on a bar). Editing with
 -- nothing held, Triangle ("Open wheel", ours only: in Blizzard's bind screen it is its
 -- own Edit Action Bar) picks a wheel the same way, and the slot flicked comes off it,
@@ -67,15 +68,25 @@ SimpleController.AddTargetAction({
     key = "PAD1",
     handOver = "Add Wheel",
     label = "Place on wheel",
-    choose = "Choose a wheel to put it on.",
-    target = function(action) return WheelOn(action) ~= nil end,
+    choose = "Choose a wheel to add to, or a slot for a new wheel.",
+    target = function() return true end,
     run = function(action, thing, editing, done)
         local slot, why = Slot(thing)
         if not slot then
             done()
             return SW.Say("Wheel: " .. why .. ", so it cannot go on a wheel")
         end
-        SW.Place(WheelOn(action), slot, thing.name or "it", editing, done)
+        local key = WheelOn(action)
+        if not key then
+            -- a new wheel in that slot, over whatever was there
+            local label
+            key, label = SW.NewWheel()
+            if not key then return done() end
+            PickupMacro(label)
+            PlaceAction(action)
+            ClearCursor()
+        end
+        SW.Place(key, slot, thing.name or "it", editing, done)
     end,
     fresh = function()
         -- the one made and let go of again, before another

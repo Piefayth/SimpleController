@@ -121,9 +121,9 @@ ring:SetAttribute("wc-forget", [[
 ]])
 
 -- open wheel `key` (nothing when it has no slots)
+-- An empty wheel opens too, every direction greyed: one that stayed shut looked broken.
 ring:SetAttribute("wc-show", [[
     local key = ...
-    if (self:GetAttribute(key .. "-count") or 0) < 1 then return end
     self:SetAttribute("wc-sticky", nil)
     self:RunAttribute("wc-forget")
     self:SetAttribute("wc-active", key)
@@ -132,18 +132,9 @@ ring:SetAttribute("wc-show", [[
 
 local sampler = CreateFrame("Frame", "WCWheelSampler", UIParent, "SecureHandlerStateTemplate")
 SecureHandlerSetFrameRef(sampler, "ring", ring)
--- Its tick also opens a wheel asked for by our own code (wc-open, then the
--- state cleared so the next tick fires): a snippet run from addon code cannot
--- reach a button it has never seen securely ("Invalid 'header' frame handle",
--- a new wheel's button clicked, 2026-11-14); the driver's tick is secure.
 sampler:SetAttribute("_onstate-aim", [[
     if newstate ~= "sample" then return end
     local ring = self:GetFrameRef("ring")
-    local open = self:GetAttribute("wc-open")
-    if open then
-        self:SetAttribute("wc-open", nil)
-        if not ring:IsShown() then ring:RunAttribute("wc-show", open) end
-    end
     if not ring:IsShown() then return end -- left set, so the driver stops firing
     ring:RunAttribute("wc-sample")
     self:SetAttribute("state-aim", nil)
@@ -363,7 +354,10 @@ ring:HookScript("OnShow", function()
     Counts(ringData[key] or {})
     FormIcons(ringData[key] or {})
     local wheel = SimpleControllerWheelsDB.wheels[key]
-    look:Open(placing and ((placing.take and "Take from " or "Place ") .. placing.label), ringData[key] or {}, wheel and wheel.four,
+    local entries = ringData[key] or {}
+    local note = placing and ((placing.take and "Take from " or "Place ") .. placing.label)
+        or (#entries == 0 and "Nothing on this wheel yet")
+    look:Open(note, entries, wheel and wheel.four,
         placing or (wheel and wheel.names))
 end)
 
@@ -527,6 +521,7 @@ local function IconID(icon)
     iconProbe:SetTexture(icon)
     return iconProbe:GetTextureFileID()
 end
+local EMPTY_ICON = IconID([[Interface\Icons\INV_Gizmo_02]]) -- the suite's own (its .toc's IconTexture)
 local function ShowLast(key)
     local from = ring:GetAttribute(key .. "-last-type") and "-last-" or "-default-"
     local attr, value = ring:GetAttribute(key .. from .. "attr"), ring:GetAttribute(key .. from .. "value")
@@ -537,7 +532,10 @@ local function ShowLast(key)
     local set = (entry and entry.show or attr == "spell") and SetMacroSpell or (attr == "item" and SetMacroItem)
     local shown = entry and entry.show and StandsFor(entry) or value
     local wheel = SimpleControllerWheelsDB.wheels[key]
-    local icon = not set and IconID(entry and entry.icon or wheel and wheel.icon) or false
+    -- nothing to show (an empty wheel): the suite's gear, a chosen icon, which hides
+    -- the spell the macro showed before. The question mark (134400) is no icon to the
+    -- game, the automatic one, and the old spell stayed (2026-11-24).
+    local icon = not set and (IconID(entry and entry.icon or wheel and wheel.icon) or EMPTY_ICON) or false
     WheelMacros(key, function(index)
         local name = GetMacroInfo(index)
         if wearing[name] ~= icon then
@@ -610,6 +608,18 @@ function W.Rebuild(quiet)
         end
         ring:SetAttribute(key .. "-count", #entries)
         ringData[key] = entries
+        -- what it used last, gone from it (taken off, replaced): forgotten, so its
+        -- macro shows what is on it
+        local lastAttr, lastValue = ring:GetAttribute(key .. "-last-attr"), ring:GetAttribute(key .. "-last-value")
+        if lastAttr then
+            local still = false
+            for _, entry in ipairs(entries) do
+                if entry.attr == lastAttr and entry.value == lastValue then still = true end
+            end
+            if not still then
+                for _, part in ipairs({ "type", "attr", "value" }) do ring:SetAttribute(key .. "-last-" .. part, nil) end
+            end
+        end
         local default = DefaultEntry(wheel, entries)
         ring:SetAttribute(key .. "-default-type", default and default.type)
         ring:SetAttribute(key .. "-default-attr", default and default.attr)
@@ -619,8 +629,8 @@ function W.Rebuild(quiet)
     return true
 end
 
--- Placing: "Place on wheel" in the editor (Place.lua) opens that wheel at once (on
--- the sampler's next tick) with every free position shown, and the flick puts
+-- Placing: "Place on wheel" in the editor (Place.lua) opens that wheel at once
+-- (Open) with every free position shown, and the flick puts
 -- the thing there (the secure release calls WCPlace instead of using the slot,
 -- never in a fight); "Open wheel" opens it the same way, and the flick takes what
 -- is there. The wheel closing ends it, whatever closed it.
@@ -634,10 +644,13 @@ local function EndPlacing()
     C_Timer.After(0, function() SimpleController.EditHolding(was.pickup) end)
 end
 ring:HookScript("OnHide", EndPlacing)
+-- Opened at once: the editor is never open in a fight, and out of one our code may run
+-- the ring's own snippet (the sampler's wc-open waits for the state driver's next
+-- update, up to 0.2 s, and the screen sat empty meanwhile).
 local function Open(key, how)
     placing = how
     W.Rebuild(true)
-    sampler:SetAttribute("wc-open", key)
+    SecureHandlerExecute(ring, ("self:RunAttribute('wc-show', %q)"):format(key))
     sampler:SetAttribute("state-aim", nil)
 end
 function SW.Place(key, slot, label, editing, done)

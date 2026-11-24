@@ -568,7 +568,10 @@ watcher:SetScript("OnUpdate", function()
 	-- bare: with a trigger or shoulder held, these are slots of Blizzard's bars
 	local bare = true
 	for _, key in ipairs(SC.CHORD_KEYS) do bare = bare and not IsKeyDown(key) end
-	local keys = { { key = HAND_OVER } }
+	-- All Bars only with bars of ours to show (Bars installed): Wheels alone hands over
+	-- by its own keys
+	local allBars = #SC.bars > 0 or SC.extras ~= nil
+	local keys = allBars and { { key = HAND_OVER } } or {}
 	for _, action in ipairs(SC.targetActions) do
 		if handOverWords(action, editing) then keys[#keys + 1] = { key = action.key, action = action } end
 	end
@@ -586,8 +589,11 @@ watcher:SetScript("OnUpdate", function()
 	if want ~= armed then
 		ClearOverrideBindings(owner)
 		if want then
-			local prompts = { { HAND_OVER, "All Bars" } }
-			SetOverrideBindingClick(owner, true, HAND_OVER, BACK_BUTTON)
+			local prompts = {}
+			if allBars then
+				prompts[1] = { HAND_OVER, "All Bars" }
+				SetOverrideBindingClick(owner, true, HAND_OVER, BACK_BUTTON)
+			end
 			for _, action in ipairs(SC.targetActions) do
 				local words = handOverWords(action, editing)
 				if words then
