@@ -17,11 +17,9 @@ Packager documentation: https://github.com/BigWigsMods/packager#readme
 
 Steps not yet done, in order:
 
-## 1. License (TODO, not chosen)
+## 1. License
 
-TODO: choose a license and add a `LICENSE` file at the repository root. MIT is
-the usual choice for WoW addons. CurseForge asks for a license when a project
-is created, so do this first.
+MIT (`LICENSE`). CurseForge and Wago ask for it when a project is created.
 
 ## 2. Optional: a first tag with no sites
 
