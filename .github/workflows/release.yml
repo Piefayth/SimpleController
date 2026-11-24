@@ -1,0 +1,46 @@
+# On a pushed tag: the model tests, then each addon packaged as its own zip by the
+# BigWigsMods packager and uploaded to the GitHub release and to every site whose
+# token is set (CurseForge, Wago, WoWInterface) and whose project ID is in the .toc.
+# A site whose secret is empty is skipped by the packager.
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install lupa==2.8
+      - run: python tests/test_bars_model.py
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the GitHub release
+    strategy:
+      # one at a time: both addons add their zip to the same GitHub release
+      max-parallel: 1
+      matrix:
+        addon:
+          - SimpleController_Bars
+          - SimpleController_Spin
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the packager's changelog and version come from the history and tags
+      - uses: BigWigsMods/packager@v2
+        with:
+          args: -m ${{ matrix.addon }}/.pkgmeta

@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: Simple Controller: Spin
+## Notes: Turning in the air out of combat is scored: circles, combos, Switchbacks, Lookbacks and landings judged like a dance game.
+## SavedVariables: SimpleControllerSpinDB
+## IconTexture: Interface\Icons\Ability_Rogue_Sprint
+## Category: Simple Controller
+## Version: @project-version@
+## X-Curse-Project-ID: FILL_ME_CURSEFORGE_PROJECT_ID
+## X-Wago-ID: FILL_ME_WAGO_PROJECT_ID
+## X-WoWI-ID: FILL_ME_WOWINTERFACE_ADDON_ID
+
+Spin.lua

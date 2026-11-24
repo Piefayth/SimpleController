@@ -1,0 +1,14 @@
+# Packages SimpleController_Bars alone (BigWigsMods packager, run with
+# -m SimpleController_Bars/.pkgmeta). The packager copies the whole repository into
+# .release/SimpleController_Bars, so everything that is not this addon is ignored,
+# then this folder's contents are moved up to be the addon's folder.
+package-as: SimpleController_Bars
+
+move-folders:
+  SimpleController_Bars/SimpleController_Bars: SimpleController_Bars
+
+ignore:
+  - README.md
+  - RELEASING.md
+  - tests
+  - SimpleController_Spin

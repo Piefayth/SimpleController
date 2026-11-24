@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: Simple Controller: Bars
+## Notes: More controller bars on Blizzard's own: a shoulder with L2, R2 or both gives eight more buttons each, and extra buttons bind to any key. Options > AddOns > Simple Controller: Bars.
+## SavedVariablesPerCharacter: SimpleControllerBarsDB
+## IconTexture: Interface\Icons\INV_Gizmo_02
+## Category: Simple Controller
+## Version: @project-version@
+## X-Curse-Project-ID: FILL_ME_CURSEFORGE_PROJECT_ID
+## X-Wago-ID: FILL_ME_WAGO_PROJECT_ID
+## X-WoWI-ID: FILL_ME_WOWINTERFACE_ADDON_ID
+
+Model.lua
+Shared.lua
+Settings.lua
+Bars.lua
+Extras.lua

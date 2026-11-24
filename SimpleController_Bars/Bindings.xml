@@ -1,0 +1,10 @@
+<Bindings>
+	<Binding name="CLICK SimpleControllerBarsExtra1:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra2:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra3:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra4:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra5:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra6:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra7:LeftButton" category="Simple Controller"/>
+	<Binding name="CLICK SimpleControllerBarsExtra8:LeftButton" category="Simple Controller"/>
+</Bindings>
