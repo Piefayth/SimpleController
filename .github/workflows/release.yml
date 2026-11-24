@@ -64,6 +64,7 @@ jobs:
           TAG: ${{ github.ref_name }}
           NAME: DOWNLOAD-THIS-${{ matrix.bundle }}-${{ github.ref_name }}.zip
           TITLE: ${{ matrix.title }}
+          BUNDLE: ${{ matrix.bundle }}
         run: |
           set -euo pipefail
           mkdir bundle
@@ -81,3 +82,15 @@ jobs:
             echo "$notes"
           } > notes.md
           gh release edit "$TAG" --notes-file notes.md
+          # The same zip under a name that never changes (Simple-Controller-Bars.zip) on a
+          # standing release of its own (latest-bars), replaced at each release, so a
+          # link to it never needs updating. Its tag starts with no addon's prefix, so it
+          # releases nothing, and it is never marked Latest.
+          STANDING="latest-${TAG%%-*}"
+          cp "$NAME" "$BUNDLE.zip"
+          if ! gh release view "$STANDING" >/dev/null 2>&1; then
+            gh release create "$STANDING" --target "$GITHUB_SHA" --latest=false \
+              --title "$TITLE: the newest download" \
+              --notes "The newest $TITLE with the Simple Controller core it needs, always at this link: \`$BUNDLE.zip\`. Unzip it into \`World of Warcraft/_forever_/Interface/AddOns\`."
+          fi
+          gh release upload "$STANDING" "$BUNDLE.zip" --clobber

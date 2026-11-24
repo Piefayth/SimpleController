@@ -8,6 +8,10 @@ installs it with them; on Wago it is set on each project's page (Relations). Rel
 the core first when a Bars or Wheels release needs a newer one. A Bars or Wheels
 GitHub Release also gets `DOWNLOAD-THIS-<addon>-<tag>.zip`, the addon with the core
 packaged from the same commit, for installing by hand; its notes open by saying so.
+The same zip is also put, under a name that never changes, on a standing release of
+its own (`latest-bars`, `latest-wheels`, made at the first such release and never
+marked Latest), replacing the last: the README's links to
+`releases/download/latest-bars/Simple-Controller-Bars.zip` (and Wheels') never change.
 The sites and `release.json` (read by addon managers) keep the addon's own zip. A tag with `alpha` or `beta` in it is a
 prerelease. `.github/workflows/release.yml` runs the BigWigsMods packager for the
 named addon. It makes the zip (`SimpleController_Spin-spin-v1.0.1-forever.zip`),

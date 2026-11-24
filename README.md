@@ -35,8 +35,10 @@ Bars and Wheels both need the core, Simple Controller, which comes in their zip.
 
 ## Install
 
-1. Download the addon's zip (for example `SimpleController_Spin-<version>-forever.zip`)
-   from the [Releases page](https://github.com/piefayth/SimpleController/releases).
+1. Download the addon's zip. The newest of each, always at these links:
+   - Bars: [Simple-Controller-Bars.zip](https://github.com/Piefayth/SimpleController/releases/download/latest-bars/Simple-Controller-Bars.zip)
+   - Wheels: [Simple-Controller-Wheels.zip](https://github.com/Piefayth/SimpleController/releases/download/latest-wheels/Simple-Controller-Wheels.zip)
+   - Spin, and every version: the [Releases page](https://github.com/Piefayth/SimpleController/releases).
 2. Extract it into `World of Warcraft\_forever_\Interface\AddOns`. Each folder in
    the zip must end up directly in `Interface\AddOns` (for example
    `Interface\AddOns\SimpleController_Spin\SimpleController_Spin.toc`, not in a
