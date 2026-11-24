@@ -95,9 +95,15 @@ local LIT = { 0.95, 0.80, 0.53 }
 local COMBO_COLORS = { LIT, { 1, 0.62, 0.2 }, { 1, 0.84, 0.25 }, { 1, 0.97, 0.82 } }
 local COMBO_SHIMMER = 7 -- radians a second, at HOT
 
+-- its settings (Settings.lua): sounds, where and how big
+local _, ST = ...
+
+local function chime(id)
+	if id and SimpleControllerSpinDB.sounds then PlaySound(id) end
+end
+
 local function sound(circles)
-	local id = SOUNDKIT and SOUNDKIT[SOUNDS[math.min(circles, #SOUNDS)]]
-	if id then PlaySound(id) end
+	chime(SOUNDKIT and SOUNDKIT[SOUNDS[math.min(circles, #SOUNDS)]])
 end
 
 local function mix(a, b, k)
@@ -155,7 +161,6 @@ end
 local function build()
 	local f = CreateFrame('Frame', 'SimpleControllerSpin', UIParent)
 	f:SetSize(2 * RADIUS + 12, 2 * RADIUS + 12)
-	f:SetPoint('CENTER', UIParent, 'CENTER', 0, 0)
 	f:SetFrameStrata('HIGH')
 	f.combo = f:CreateFontString(nil, 'OVERLAY', 'GameFontNormalHuge')
 	f.line = f:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
@@ -482,6 +487,21 @@ local function enable()
 		f:Show()
 	end
 
+	-- its settings: where and how big, and a sample while they change (not mid-combo)
+	function ST.Place()
+		local db = SimpleControllerSpinDB
+		f:SetScale(db.size)
+		f:ClearAllPoints()
+		f:SetPoint('CENTER', UIParent, 'CENTER', db.x, db.y)
+	end
+	function ST.Preview()
+		if air or combo > 0 then return end
+		f.combo:SetText('x3'); f.degs:SetText('720°')
+		live()
+		f.out:Play()
+	end
+	ST.Place()
+
 	-- a new combo began: the last one's Miss gets out of its way
 	local function clearMiss()
 		local m = f.miss
@@ -612,7 +632,7 @@ local function enable()
 			if now - circleAt <= TIGHT then
 				f.tight:SetText('Tight!')
 				f.tightStamp:Stop(); f.tightStamp:Play()
-				PlaySound(SOUNDKIT.UI_EPICLOOT_TOAST)
+				chime(SOUNDKIT.UI_EPICLOOT_TOAST)
 			end
 		elseif combo > 0 then
 			endCombo(('%d°'):format(math.floor(deg)))
@@ -743,7 +763,11 @@ end
 local login = CreateFrame('Frame')
 login:RegisterEvent('PLAYER_LOGIN')
 login:SetScript('OnEvent', function()
-	-- the bests, kept across characters
+	-- the bests and settings, kept across characters
 	SimpleControllerSpinDB = SimpleControllerSpinDB or { bestSpin = 0, bestCombo = 0 }
+	for key, value in pairs(ST.DEFAULTS) do
+		if SimpleControllerSpinDB[key] == nil then SimpleControllerSpinDB[key] = value end
+	end
 	enable()
+	ST.Settings()
 end)

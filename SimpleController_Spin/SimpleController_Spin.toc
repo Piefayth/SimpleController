@@ -9,4 +9,5 @@
 ## X-Wago-ID: FILL_ME_WAGO_PROJECT_ID
 ## X-WoWI-ID: FILL_ME_WOWINTERFACE_ADDON_ID
 
+Settings.lua
 Spin.lua

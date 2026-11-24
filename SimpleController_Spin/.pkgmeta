@@ -10,5 +10,3 @@ move-folders:
 ignore:
   - README.md
   - RELEASING.md
-  - tests
-  - SimpleController_Bars
