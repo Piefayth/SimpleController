@@ -1,16 +1,6 @@
 # Simple Controller: Bars
 
-**Turn bars on:** Options > AddOns > Simple Controller: Bars. Tick a bar, press Apply.
-
-**Use a bar:** hold its buttons (for example L1 + L2), press a d-pad or face button.
-
-**Extra buttons:** Options > Keybindings > Simple Controller. Bind Extra button 1-8 to any button. Press that button to use it.
-
-**Put a spell on a bar:** in the spellbook, Square on the spell, then Square again. Hold the bar's buttons, press where it goes.
-
-**Move or remove:** in the spellbook, Triangle (Edit Action Bar), then Square. Hold a bar's buttons. Press a button to pick up, press another to put down.
-- An extra button: press its own button.
-- Square: remove what you hold.
-- Circle: put it back. Circle again: close.
-
-**Move the bars on screen:** Options > AddOns > Simple Controller: Bars > Layout.
+1. Pick which bars you want in Options > AddOns > Simple Controller: Bars.
+2. After reloading UI after picking, you can also reposition them with the sliders beneath the checkboxes.
+3. Check "Extra Buttons" if you want to enable additional non-chorded keypresses (for example, I bind L3 to my shapeshift macro instead of autorun thorugh this)
+4. Bindings - Bind as normal through the spellbook, macro book, bag, whatever. Tap square (or your platform's equivalent) on the binding screen to enable binding to the extra bars
