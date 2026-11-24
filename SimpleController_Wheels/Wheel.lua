@@ -31,10 +31,10 @@
 -- A slot may carry `label` and `icon` to override what is looked up.
 -- A slot { rule = "fight" }, { rule = "food" }, { rule = "quest" } or { rule = "gear" }
 -- fills itself from what is carried (and, for gear, worn).
--- The player fills them in Simple Controller's editor (Place.lua): a spell, item
--- or macro bound onto a wheel's bar slot opens that wheel, and the flick puts it
--- in a slot or an "Add here" one (SW.Place); "New wheel" on an empty slot makes
--- an empty one there (SW.NewWheel).
+-- The player fills them in Simple Controller's editor (Place.lua): "Place on wheel"
+-- opens the wheel picked, and the flick puts what is held in a slot or an "Add here"
+-- one (SW.Place); "Open wheel" takes a slot's thing off (SW.Take); "Add Wheel" makes
+-- an empty one (SW.NewWheel).
 
 local _, SW = ...
 WCWheel = WCWheel or {}
@@ -46,7 +46,11 @@ local MODIFIERS_LUA = [[newtable("", "SHIFT-", "CTRL-", "ALT-", "CTRL-SHIFT-", "
 
 local ringData = {} -- [wheel] = { { label, icon, itemID, count, dx, dy }, ... }
 local pending = false
-local placing -- { slot, label }: what a flick puts on the wheel open (SW.Place)
+-- what a flick does on the wheel open: { slot, label } puts slot there (SW.Place),
+-- { take = true, label } takes what is there (SW.Take). After it, `editing` (from Edit
+-- Action Bars): the editor opens again, holding what came off the wheel (`pickup`, a
+-- { func, params }), if anything; else `done` lifts the editor's shade.
+local placing
 
 local function Print(text) SW.Say("Wheel: " .. text) end
 
@@ -359,7 +363,7 @@ ring:HookScript("OnShow", function()
     Counts(ringData[key] or {})
     FormIcons(ringData[key] or {})
     local wheel = SimpleControllerWheelsDB.wheels[key]
-    look:Open(placing and ("Place " .. placing.label), ringData[key] or {}, wheel and wheel.four,
+    look:Open(placing and ((placing.take and "Take from " or "Place ") .. placing.label), ringData[key] or {}, wheel and wheel.four,
         placing or (wheel and wheel.names))
 end)
 
@@ -590,7 +594,7 @@ function W.Rebuild(quiet)
         end
         -- while placing, every free position shows itself: the gaps and all
         -- past the last slot
-        if placing then
+        if placing and not placing.take then
             for _, entry in ipairs(entries) do
                 if entry.empty then entry.label, entry.icon = "Add here", 134400 end
             end
@@ -618,19 +622,41 @@ end
 -- Placing: "Place on wheel" in the editor (Place.lua) opens that wheel at once (on
 -- the sampler's next tick) with every free position shown, and the flick puts
 -- the thing there (the secure release calls WCPlace instead of using the slot,
--- never in a fight). The wheel closing ends it, whatever closed it.
+-- never in a fight); "Open wheel" opens it the same way, and the flick takes what
+-- is there. The wheel closing ends it, whatever closed it.
 local function EndPlacing()
     if not placing then return end
+    local was = placing
     placing = nil
     W.Rebuild(true)
+    if not was.editing then return was.done() end
+    -- once the ring's secure release is done
+    C_Timer.After(0, function() SimpleController.EditHolding(was.pickup) end)
 end
 ring:HookScript("OnHide", EndPlacing)
-function SW.Place(key, slot, label)
-    placing = { slot = slot, label = label }
+local function Open(key, how)
+    placing = how
     W.Rebuild(true)
     sampler:SetAttribute("wc-open", key)
     sampler:SetAttribute("state-aim", nil)
 end
+function SW.Place(key, slot, label, editing, done)
+    Open(key, { slot = slot, label = label, editing = editing, done = done })
+end
+function SW.Take(key, done)
+    local wheel = SimpleControllerWheelsDB.wheels[key]
+    Open(key, { take = true, label = wheel and wheel.label or key, editing = true, done = done })
+end
+
+-- what came off a wheel's slot, held when the editor opens again (Edit Action Bars)
+local PICKUP = { spell = C_Spell.PickupSpell, item = C_Item.PickupItem, macro = PickupMacro }
+local function Hold(slot)
+    if not placing.editing then return end
+    for kind, pickup in pairs(PICKUP) do
+        if slot[kind] then placing.pickup = { func = pickup, params = { slot[kind] } } end
+    end
+end
+
 function ring:WCPlace(key, index)
     local wheel = SimpleControllerWheelsDB.wheels[key]
     local entry = ringData[key] and ringData[key][index]
@@ -639,6 +665,14 @@ function ring:WCPlace(key, index)
         return Print("that slot is filled from the bags (the " .. entry.from.rule .. " rule)")
     end
     wheel.slots = wheel.slots or {}
+    if placing.take then
+        if entry.empty then return end
+        local taken = wheel.slots[entry.from.index]
+        -- a gap, so the others keep their directions; none left at the end
+        wheel.slots[entry.from.index] = {}
+        while #wheel.slots > 0 and next(wheel.slots[#wheel.slots]) == nil do table.remove(wheel.slots) end
+        return Hold(taken)
+    end
     local said = placing.label .. " added to " .. (wheel.label or key)
     if entry.add then
         -- past the last slot: gaps up to the position flicked
@@ -647,8 +681,10 @@ function ring:WCPlace(key, index)
         for _ = last + 1, index - 1 do wheel.slots[#wheel.slots + 1] = {} end
         wheel.slots[#wheel.slots + 1] = placing.slot
     else
+        local was = wheel.slots[entry.from.index]
         if not entry.empty then said = placing.label .. " is on " .. (wheel.label or key) .. " in place of " .. tostring(entry.label) end
         wheel.slots[entry.from.index] = placing.slot
+        if not entry.empty then Hold(was) end
     end
     Print(said)
 end

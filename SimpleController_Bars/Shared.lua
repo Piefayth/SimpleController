@@ -35,8 +35,24 @@ function CB.HasPicture(key)
 	return ok and textures ~= nil
 end
 
--- A row by what the player holds: a chord's buttons, or the extra buttons.
+-- A binding's name as Blizzard's Keybindings screen shows it.
+function CB.BindingName(action)
+	return _G["BINDING_NAME_" .. action] or action
+end
+
+-- Whether `key` starts one of the player's own bars on (Bars.lua binds it): it does
+-- nothing else, the extra buttons included.
+function CB.IsStarter(key)
+	for _, row in ipairs(CB.PRESSED) do
+		if CB.placed[row] and row.keys and tContains(row.keys, key) and CB.IsStarterKey(key) then return true end
+	end
+	return false
+end
+
+-- A row by what the player holds: a chord's buttons, the extra buttons, or the
+-- player's own bar and its chord.
 function CB.RowName(row)
+	if row.pressed then return row.name .. (row.keys and ": " .. CB.KeysText(row.keys) or "") end
 	return row.keys and CB.KeysText(row.keys) or "Extra buttons"
 end
 
@@ -48,6 +64,10 @@ local atLogin = {}
 events:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_LOGIN" then
 		SimpleControllerBarsDB = SimpleControllerBarsDB or {}
+		for _, row in ipairs(CB.PRESSED) do
+			local text = SimpleControllerBarsDB[row.setting]
+			row.keys = type(text) == "string" and text ~= "" and CB.ChordKeys(text) or nil
+		end
 		-- where each row keeps its spells, laid out once per load (CB.Layout)
 		CB.placed, CB.paged = CB.Layout(SimpleControllerBarsDB, CB.IsEmpty)
 		for _, fn in ipairs(atLogin) do fn() end
@@ -159,11 +179,8 @@ function CB.Mirror(blizzard)
 end
 
 -- The buttons to hold, under a bar of ours, in the bar's mirror box.
-function CB.Prompt(template, keys, under, box)
-	local prompt = CB.InBox(CreateFrame("Frame", nil, box, template), box)
-	for i, key in ipairs(keys) do prompt:SetPromptInputIconKey(i, key) end
-	prompt:SetUseDropShadow(true)
-	prompt:RefreshInputPromptSize()
+function CB.Prompt(keys, under, box)
+	local prompt = CB.InBox(SimpleController.Prompt(box, keys), box)
 	prompt:SetPoint("CENTER", under, "CENTER", 0, CB.PROMPT_Y)
 	-- drawn over the bar's buttons, never under them
 	prompt:SetFrameLevel(under:GetFrameLevel() + 10)

@@ -7,9 +7,8 @@
 -- priority ones (shoulder+L3, centre camera). Each bound button shows in a row under
 -- the bottom bar, with its key's prompt; unbound ones show nowhere.
 -- One button per extra: Blizzard's Keybindings screen binds a single button (L1 and
--- L2 combos only where the game makes them Ctrl and Shift). Chords of any buttons
--- (R1 + L3) would need the keys in our own settings, pressed to set and read from the
--- pad, as WoW Companion's are: the answer if anyone asks for them.
+-- L2 combos only where the game makes them Ctrl and Shift). A chord of other buttons
+-- (a paddle with R1) is a custom bar (Bars.lua).
 local _, CB = ...
 
 local COUNT = 8
@@ -25,10 +24,18 @@ local function command(i) return ("CLICK SimpleControllerBarsExtra%d:LeftButton"
 
 for i = 1, COUNT do _G["BINDING_NAME_" .. command(i)] = ("Extra button %d"):format(i) end
 
+-- Each extra's keys, but a starter of the player's own bars, which is the bar's alone.
+local function boundKeys(i)
+	local out = {}
+	for _, key in ipairs({ GetBindingKey(command(i)) }) do
+		if not CB.IsStarter(key) then out[#out + 1] = key end
+	end
+	return out
+end
 -- The key bound to each extra, the first of its keys.
 local function keys()
 	local out = {}
-	for i = 1, COUNT do out[i] = GetBindingKey(command(i)) end
+	for i = 1, COUNT do out[i] = boundKeys(i)[1] end
 	return out
 end
 
@@ -132,7 +139,7 @@ local function buildCasts(row, owner)
 	return function(bound)
 		ClearOverrideBindings(owner)
 		for i = 1, COUNT do
-			for _, key in ipairs({ GetBindingKey(command(i)) }) do
+			for _, key in ipairs(boundKeys(i)) do
 				SetOverrideBindingClick(owner, false, key, "SimpleControllerBarsExtra" .. i, "LeftButton")
 			end
 		end

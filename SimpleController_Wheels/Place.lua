@@ -4,14 +4,23 @@
 -- (binding, "Place on wheel": the wheels on the bars light to put the spell on;
 -- editing, "Add Wheel": a new, empty wheel is held, to put down like a
 -- spell), and, holding a spell, item or macro, "Place on wheel": the wheels on the
--- bars light, and the one picked opens to flick where it goes (SW.Place). A new
--- wheel never put down goes when the editor closes, macro and all.
+-- bars light, and the one picked opens to flick where it goes (SW.Place; in Edit
+-- Action Bars what was there comes back held, a swap as on a bar). Editing with
+-- nothing held, Triangle ("Open wheel", ours only: in Blizzard's bind screen it is its
+-- own Edit Action Bar) picks a wheel the same way, and the slot flicked comes off it,
+-- held (SW.Take). A new wheel never put down goes when the editor closes, macro and all.
 local _, SW = ...
+
+-- The macro on bar slot `action`, by its name: a macro showing a spell (a wheel's
+-- with SetMacroSpell) is given by GetActionInfo as that spell's ID, not the macro's.
+local function MacroOn(action)
+    return GetActionInfo(action) == "macro" and GetActionText(action) or nil
+end
 
 -- the wheel whose macro is on bar slot `action`
 local function WheelOn(action)
-    local kind, id = GetActionInfo(action)
-    local body = kind == "macro" and select(3, GetMacroInfo(id))
+    local name = MacroOn(action)
+    local body = name and GetMacroBody(name)
     if not body then return end
     for key in pairs(SimpleControllerWheelsDB.wheels) do
         if body:find(WCWheel.Macro(key), 1, true) then return key end
@@ -37,8 +46,7 @@ end
 -- a macro on any action slot
 local function OnBars(name)
     for action = 1, 400 do
-        local kind, id = GetActionInfo(action)
-        if kind == "macro" and GetMacroInfo(id) == name then return true end
+        if MacroOn(action) == name then return true end
     end
 end
 local made = {} -- wheels made by Add Wheel this session, gone again if never put down
@@ -61,10 +69,13 @@ SimpleController.AddTargetAction({
     label = "Place on wheel",
     choose = "Choose a wheel to put it on.",
     target = function(action) return WheelOn(action) ~= nil end,
-    run = function(action, thing)
+    run = function(action, thing, editing, done)
         local slot, why = Slot(thing)
-        if not slot then return SW.Say("Wheel: " .. why .. ", so it cannot go on a wheel") end
-        SW.Place(WheelOn(action), slot, thing.name or "it")
+        if not slot then
+            done()
+            return SW.Say("Wheel: " .. why .. ", so it cannot go on a wheel")
+        end
+        SW.Place(WheelOn(action), slot, thing.name or "it", editing, done)
     end,
     fresh = function()
         -- the one made and let go of again, before another
@@ -76,6 +87,13 @@ SimpleController.AddTargetAction({
         made[key] = label
         return { func = PickupMacro, params = { label } }
     end,
+})
+
+SimpleController.AddTargetAction({
+    key = "PAD4",
+    pick = { label = "Open wheel", choose = "Choose a wheel to take from." },
+    target = function(action) return WheelOn(action) ~= nil end,
+    run = function(action, _, _, done) SW.Take(WheelOn(action), done) end,
 })
 
 SimpleController.OnEditor(function(open)

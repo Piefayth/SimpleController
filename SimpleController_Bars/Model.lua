@@ -1,12 +1,7 @@
 -- The rules, with no game API: which chords there are, where each keeps its spells,
--- which chord a press belongs to, and the secure snippet that decides it in play.
--- Tested by tools/test_simplecontroller.py, every combination.
+-- and the secure snippet that picks a press's chord in play. Tested by
+-- tools/test_simplecontroller.py, every combination.
 local _, CB = ...
-
-CB.ACTIVE_LEVEL = 5 -- the frame level Blizzard raises the active gamepad bar to
-
--- The bars Blizzard lights for a trigger held.
-CB.LIT_BARS = { "leftBar", "rightBar", "stanceBar", "bottomBar" }
 
 -- Where a row keeps its eight spells, best first: the first eight slots of one of
 -- Blizzard's keyboard action bars 2-8, which a controller player never sees, and
@@ -29,33 +24,97 @@ CB.SOURCES = {
 local SOURCE = {}
 for _, source in ipairs(CB.SOURCES) do SOURCE[source.id] = source end
 
--- The six chords the game lets us tell apart (docs/proposals/native-chords.md): a
--- shoulder, which shows its targeting bar, with L2, R2 or both, which light one bar
--- of Blizzard's (`lit`). `note`: what switching it on changes.
+-- The six chords (docs/proposals/native-chords.md): a shoulder, which shows its
+-- targeting bar and so takes the eight keys, with L2, R2 or both. `flyout`: Blizzard's
+-- class button the chord opens, which it takes over (Settings.lua says so by class).
 CB.CHORDS = {
-	{ setting = "left", shoulder = "L", lit = { "leftBar" },
-		keys = { "PADLSHOULDER", "PADLTRIGGER" }, flyout = "LeftClassAction",
-		note = "Hides the class or pet flyout that L1 + L2 opened." },
-	{ setting = "leftCross", shoulder = "L", lit = { "rightBar", "stanceBar" },
-		keys = { "PADLSHOULDER", "PADRTRIGGER" } },
-	{ setting = "leftBoth", shoulder = "L", lit = { "bottomBar" },
-		keys = { "PADLSHOULDER", "PADLTRIGGER", "PADRTRIGGER" } },
-	{ setting = "right", shoulder = "R", lit = { "rightBar", "stanceBar" },
-		keys = { "PADRSHOULDER", "PADRTRIGGER" }, flyout = "RightClassAction",
-		note = "Hides the class or pet flyout that R1 + R2 opened." },
-	{ setting = "rightCross", shoulder = "R", lit = { "leftBar" },
-		keys = { "PADRSHOULDER", "PADLTRIGGER" } },
-	{ setting = "rightBoth", shoulder = "R", lit = { "bottomBar" },
-		keys = { "PADRSHOULDER", "PADLTRIGGER", "PADRTRIGGER" } },
+	{ setting = "left", shoulder = "L", keys = { "PADLSHOULDER", "PADLTRIGGER" }, flyout = "LeftClassAction" },
+	{ setting = "leftCross", shoulder = "L", keys = { "PADLSHOULDER", "PADRTRIGGER" } },
+	{ setting = "leftBoth", shoulder = "L", keys = { "PADLSHOULDER", "PADLTRIGGER", "PADRTRIGGER" } },
+	{ setting = "right", shoulder = "R", keys = { "PADRSHOULDER", "PADRTRIGGER" }, flyout = "RightClassAction" },
+	{ setting = "rightCross", shoulder = "R", keys = { "PADRSHOULDER", "PADLTRIGGER" } },
+	{ setting = "rightBoth", shoulder = "R", keys = { "PADRSHOULDER", "PADLTRIGGER", "PADRTRIGGER" } },
 }
 CB.EXTRAS = { setting = "extras" }
 
--- Every row that keeps spells: the six chords and the extra buttons.
+-- Bars on chords the player sets by holding them (docs/proposals/pressed-chords.md),
+-- saved as the buttons joined by "+" (db[setting]; none: off); `keys` is read from that
+-- at login. A chord has a
+-- starter, whose press takes the eight keys: any button but the bars' own eight, the
+-- shoulders and triggers (which may join one), the reserved and the stick directions.
+-- Never in a chord: what a controller reaches the menus with, in Blizzard's own legend
+-- of what each button does in play (Blizzard_Gamepad's GamepadPersistentInputLegend.lua).
+CB.RESERVED = { PADBACK = "Focus UI", PADFORWARD = "the game menu" }
+-- a stick pushed, which the game also reports as buttons (GamePadStickAxisButtons)
+local STICK_DIRECTIONS = { "PADLSTICKUP", "PADLSTICKDOWN", "PADLSTICKLEFT", "PADLSTICKRIGHT",
+	"PADRSTICKUP", "PADRSTICKDOWN", "PADRSTICKLEFT", "PADRSTICKRIGHT" }
+CB.PRESSED = {}
+for n = 1, 4 do CB.PRESSED[n] = { setting = "pressed" .. n, name = "Custom " .. n, pressed = true } end
+
+-- Every row that keeps spells: the six chords, the extra buttons, the player's own.
 function CB.Rows()
 	local rows = {}
 	for _, chord in ipairs(CB.CHORDS) do rows[#rows + 1] = chord end
 	rows[#rows + 1] = CB.EXTRAS
+	for _, row in ipairs(CB.PRESSED) do rows[#rows + 1] = row end
 	return rows
+end
+
+local function has(list, key)
+	for _, each in ipairs(list) do
+		if each == key then return true end
+	end
+	return false
+end
+
+function CB.IsStarterKey(key)
+	return not (has(SimpleController.KEYS, key) or has(SimpleController.CHORD_KEYS, key)
+		or CB.RESERVED[key] or has(STICK_DIRECTIONS, key))
+end
+
+-- A chord saved and read back: its buttons in one order, the shoulders and triggers
+-- first, then the starters by name.
+function CB.ChordText(keys)
+	local out, starters = {}, {}
+	for _, key in ipairs(SimpleController.CHORD_KEYS) do
+		if has(keys, key) then out[#out + 1] = key end
+	end
+	for _, key in ipairs(keys) do
+		if CB.IsStarterKey(key) then starters[#starters + 1] = key end
+	end
+	table.sort(starters)
+	for _, key in ipairs(starters) do out[#out + 1] = key end
+	return table.concat(out, "+")
+end
+function CB.ChordKeys(text)
+	local keys = {}
+	for key in (text or ""):gmatch("[^+]+") do keys[#keys + 1] = key end
+	return keys
+end
+
+-- Why `keys`, held together, cannot be `row`'s chord (one of `rows`), or nil.
+function CB.ChordProblem(keys, row, rows)
+	local starter = false
+	for _, key in ipairs(keys) do
+		if has(SimpleController.KEYS, key) then return "The d-pad and face buttons are the bar's own buttons." end
+		if CB.RESERVED[key] then
+			return GetBindingText(key) .. " is " .. CB.RESERVED[key] .. ": it cannot be part of a chord."
+		elseif has(STICK_DIRECTIONS, key) then
+			return "A stick pushed cannot be part of a chord."
+		elseif CB.IsStarterKey(key) then
+			starter = true
+		end
+	end
+	if not starter then
+		return "Add another button (a paddle, a stick click): Blizzard's own play uses the shoulders and triggers alone."
+	end
+	if #keys > 3 then return "A chord is at most three buttons." end
+	local text = CB.ChordText(keys)
+	for _, other in ipairs(rows) do
+		if other ~= row and other.keys and CB.ChordText(other.keys) == text then
+			return other.name .. " has that chord." -- only the player's own bars have a starter
+		end
+	end
 end
 
 local function slotsKey(row) return row.setting .. "Slots" end
@@ -64,6 +123,7 @@ CB.SlotsKey = slotsKey
 -- Every row is off until the player switches it on, per character: a character
 -- with nothing saved has Blizzard's controls as they are.
 local function enabled(db, row)
+	if row.pressed then return type(db[row.setting]) == "string" and db[row.setting] ~= "" end
 	return db[row.setting] == true
 end
 CB.Enabled = enabled
@@ -100,24 +160,22 @@ function CB.Layout(db, isEmpty)
 	return placed, paged
 end
 
--- Which of `chords` (one shoulder's, in order) a press belongs to, from what the
--- game shows: whether that shoulder's targeting bar is up, and each bar's level.
-function CB.ChordFor(chords, shown, level)
-	if not shown then return nil end
-	for n, chord in ipairs(chords) do
-		for _, key in ipairs(chord.lit) do
-			if level(key) == CB.ACTIVE_LEVEL then return chord, n end
-		end
-	end
+-- A chord as the secure snippet compares it: "1" or "0" for each of `keys` (every
+-- chord's buttons, SimpleController.ChordKeys), in that order, held or not.
+function CB.Pattern(keys, isDown)
+	local held = {}
+	for k, key in ipairs(keys) do held[k] = isDown(key) and "1" or "0" end
+	return table.concat(held)
 end
 
-
 -- The secure snippet on key `i`'s button for a shoulder with `count` chords
--- (OnClick, wrapped: self, button, down). Down: the first chord whose bar is lit
--- (refs a<n>, b<n>) presses its look (watch<n>) and casts its slot, or its macro's
--- text; none: the targeting bar's own button (cb-pass). Up: the chord pressed lets
--- its look go, and the click stops there.
-function CB.FireSnippet(i, count)
+-- (OnClick, wrapped: self, button, down), among `count` chords told apart by `keys`
+-- buttons. Down: the chord whose buttons are exactly those the pad holds
+-- (GetGamePadState, its buttons at cb-index<k> for the k-th key; chord n's pattern is
+-- cb-want<n>) presses its look (watch<n>) and casts its slot, or its macro's text;
+-- none: cb-pass (the targeting bar's own button). Up: the chord pressed lets its look
+-- go, and the click stops there.
+function CB.FireSnippet(i, count, keys)
 	return ([[
 		if not down then
 			local held = self:GetAttribute("cb-held")
@@ -125,10 +183,13 @@ function CB.FireSnippet(i, count)
 			self:SetAttribute("cb-held", nil)
 			return false
 		end
+		local state, held = GetGamePadState(), ""
+		for k = 1, %d do
+			held = held .. (state and state.buttons[self:GetAttribute("cb-index" .. k)] and "1" or "0")
+		end
 		local text = self:GetAttribute("cb-pass")
 		for n = 1, %d do
-			local a, b = self:GetFrameRef("a" .. n), self:GetFrameRef("b" .. n)
-			if a:GetFrameLevel() == %d or (b and b:GetFrameLevel() == %d) then
+			if self:GetAttribute("cb-want" .. n) == held then
 				self:GetFrameRef("watch" .. n):RunAttribute("cb-press", %d)
 				self:SetAttribute("cb-held", n)
 				local macro = GetActionInfo(self:GetAttribute("cb-slot" .. n)) == "macro" and self:GetAttribute("cb-macro" .. n)
@@ -137,5 +198,5 @@ function CB.FireSnippet(i, count)
 			end
 		end
 		self:SetAttribute("macrotext", text)
-	]]):format(i, count, CB.ACTIVE_LEVEL, CB.ACTIVE_LEVEL, i)
+	]]):format(i, keys, count, i)
 end

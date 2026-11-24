@@ -27,12 +27,18 @@ local BACK_BUTTON = "InputFunctionBindingButton_PAD2" -- Blizzard's button behin
 local L, R = "PADLTRIGGER", "PADRTRIGGER"
 local CANCEL_KEY, UNBIND_KEY = "PAD2", "PAD3"
 
--- the screen: Blizzard's shade (ActionBarEditFrame.xml) over everything under it
+-- Blizzard's shade (ActionBarEditFrame.xml) over everything under the screen, a frame
+-- of its own: it stays while a target action's own screen (a wheel) follows ours
+local dim = CreateFrame("Frame", nil, UIParent)
+dim:SetFrameStrata("HIGH")
+dim:SetAllPoints()
+dim:Hide()
 local screen = CreateFrame("Frame", nil, UIParent)
 screen:SetFrameStrata("HIGH")
+screen:SetFrameLevel(dim:GetFrameLevel() + 2)
 screen:SetAllPoints()
 screen:Hide()
-local shade = screen:CreateTexture(nil, "BACKGROUND")
+local shade = dim:CreateTexture(nil, "BACKGROUND")
 shade:SetPoint("TOPLEFT", -6, 6)
 shade:SetPoint("BOTTOMRIGHT", 6, -6)
 shade:SetColorTexture(0, 0, 0, 0.75)
@@ -157,7 +163,6 @@ end
 
 -- A bar as Blizzard's editor shows one: small at rest, grown and lit while picked, the
 -- buttons that pick it under it, as in play (none for the top bar).
-local PROMPTS = { "InputPromptOneIconTemplate", "InputPromptTwoIconTemplate", "InputPromptThreeIconTemplate" }
 local PROMPT_Y = -35 -- where Blizzard's XML puts each bar's trigger prompt
 local function barPair(keys)
 	local pair = {}
@@ -172,11 +177,8 @@ local function barPair(keys)
 	end
 	glow(pair.big, true)
 	if #keys > 0 then
-		local prompt = CreateFrame("Frame", nil, screen, PROMPTS[#keys])
+		local prompt = SC.Prompt(screen, keys)
 		prompt:SetFrameStrata(screen:GetFrameStrata())
-		for i, key in ipairs(keys) do prompt:SetPromptInputIconKey(i, key) end
-		prompt:SetUseDropShadow(true)
-		prompt:RefreshInputPromptSize()
 		prompt:SetPoint("CENTER", pair.big, "CENTER", 0, PROMPT_Y)
 		prompt:SetFrameLevel(pair.big:GetFrameLevel() + 10) -- over the bar's buttons
 		pair.prompt = prompt
@@ -260,6 +262,11 @@ catcher:Hide()
 
 local function holding() return GetCursorInfo() ~= nil end
 
+-- a target action being chosen for: its words, and its target and run
+local function choice(words, action)
+	return { label = words.label, choose = words.choose, target = action.target, run = action.run }
+end
+
 -- what is held, as the game names it: { kind, id, name, icon } (spell, item or macro)
 local function heldThing()
 	local kind, a, c
@@ -313,7 +320,7 @@ local function draw()
 		end
 	end
 	local held = heldThing()
-	local showBind = held ~= nil
+	local showBind = held ~= nil or choosing ~= nil
 	bindBox:SetShown(showBind)
 	editBox:SetShown(not showBind)
 	GameTooltip:Hide()
@@ -325,6 +332,9 @@ local function draw()
 		end
 		actionName:SetText(held.name or "")
 		actionIcon:SetTexture(held.icon)
+	else
+		actionName:SetText("")
+		actionIcon:SetTexture(nil)
 	end
 	-- Blizzard's own footer words (its editor's prompted bindings), and the target actions'
 	footer:ClearAllPoints()
@@ -335,11 +345,13 @@ local function draw()
 	else
 		if mode == "edit" and held then prompts[#prompts + 1] = { UNBIND_KEY, FRAME_ACTION_UNBIND } end
 		for _, action in ipairs(SC.targetActions) do
+			local words
 			if held then
-				prompts[#prompts + 1] = { action.key, action.label }
+				words = action.label
 			elseif mode == "edit" then
-				prompts[#prompts + 1] = { action.key, action.handOver }
+				words = action.handOver or action.pick and action.pick.label
 			end
+			if words then prompts[#prompts + 1] = { action.key, words } end
 		end
 		prompts[#prompts + 1] = { CANCEL_KEY, mode == "bind" and FRAME_ACTION_BACK or FRAME_ACTION_CANCEL }
 	end
@@ -381,14 +393,20 @@ local function hidePlay(on)
 	for _, fn in ipairs(SC.onEditor) do fn(on) end
 end
 
-local function close()
+-- `keepDim`: the shade and the bars of play stay hidden, for a target action's screen
+local function undim()
+	if mode then return end
+	dim:Hide()
+	hidePlay(false)
+end
+local function close(keepDim)
 	if mode == "edit" and holding() and from and not HasAction(from) then PlaceAction(from) end
 	ClearCursor()
 	mode, binding, from, lit, choosing = nil, nil, nil, nil, nil
 	catcher:Hide()
 	screen:Hide()
-	hidePlay(false)
 	GameTooltip:Hide()
+	if not keepDim then undim() end
 end
 
 -- a slot pressed
@@ -396,11 +414,11 @@ local function act(slot)
 	if choosing then
 		if not choosing.target(slot) then return end
 		-- what is held goes to the target, off the bars: moved, as a put-down moves it
-		local action, thing = choosing, heldThing()
+		local action, thing, editing = choosing, heldThing(), mode == "edit"
 		ClearCursor()
 		from = nil
-		close()
-		return action.run(slot, thing)
+		close(true)
+		return action.run(slot, thing, editing, undim)
 	end
 	if mode == "bind" then
 		local bringing = { func = binding.func, params = binding.params }
@@ -446,8 +464,10 @@ SC.AfterCombat(function()
 		for _, action in ipairs(SC.targetActions) do
 			if key == action.key then
 				if heldThing() then
-					choosing = action
-				elseif mode == "edit" then
+					if action.label then choosing = choice(action, action) end
+				elseif mode == "edit" and action.pick then
+					choosing = choice(action.pick, action)
+				elseif mode == "edit" and action.fresh then
 					hold(action)
 				end
 				return draw()
@@ -504,26 +524,42 @@ local function start(bringing, action)
 	end
 	mode, from, lit, choosing = bringing and "bind" or "edit", nil, nil, nil
 	hidePlay(true)
+	dim:Show()
 	screen:Show()
 	catcher:Show()
 	if action and bringing then
-		choosing = action
+		choosing = choice(action, action)
+	elseif action and action.pick then
+		choosing = choice(action.pick, action)
 	elseif action then
 		hold(action)
 	end
 	draw()
 end
 
+-- the editor opened editing, holding what `pickup` ({ func, params }) puts on the
+-- cursor, or nothing (nil)
+function SC.EditHolding(pickup)
+	start(nil, { fresh = function() return pickup end })
+	undim() -- refused (a fight): the shade a wheel kept goes
+end
+
 -- The extension keys, while Blizzard's bind screen or Edit Action Bar is open (picking,
 -- not holding: its Back then undoes): bare Square for all bars, and each target
--- action's (bare Cross: Wheels), which its editor leaves free too (no trigger: the top
--- bar, whose face buttons bind nothing; Triangle is its own Edit Action Bar, Circle
--- its Back). Each closes Blizzard's through its Back and opens ours, in the same mode.
+-- action's (bare Cross: Wheels; Triangle too in Edit Action Bar, where it is free, but
+-- not in the bind screen, where it is Blizzard's own Edit Action Bar), which its editor
+-- leaves free (no trigger: the top bar, whose face buttons bind nothing; Circle is its
+-- Back). Each closes Blizzard's through its Back and opens ours, in the same mode.
 -- their prompts: Blizzard's footer look, at the other end of its info box from its own
 local notice = legend(UIParent)
 notice:Hide()
 local owner = CreateFrame("Frame")
 local armed, bringing, handing, wasDown = false, nil, nil, {}
+-- a target action's prompt in Blizzard's screen, or nil where it is not handed over
+local function handOverWords(action, editing)
+	if editing == "BIND_ACTION" then return action.handOver and action.label end
+	return action.handOver or action.pick and action.pick.label
+end
 local watcher = CreateFrame("Frame")
 watcher:SetScript("OnUpdate", function()
 	local edit = GamepadActionBarEditFrame
@@ -533,7 +569,9 @@ watcher:SetScript("OnUpdate", function()
 	local bare = true
 	for _, key in ipairs(SC.CHORD_KEYS) do bare = bare and not IsKeyDown(key) end
 	local keys = { { key = HAND_OVER } }
-	for _, action in ipairs(SC.targetActions) do keys[#keys + 1] = { key = action.key, action = action } end
+	for _, action in ipairs(SC.targetActions) do
+		if handOverWords(action, editing) then keys[#keys + 1] = { key = action.key, action = action } end
+	end
 	for _, each in ipairs(keys) do
 		local down = IsKeyDown(each.key)
 		if down and not wasDown[each.key] and armed and bare then handing = { bringing = bringing, action = each.action } end
@@ -551,9 +589,11 @@ watcher:SetScript("OnUpdate", function()
 			local prompts = { { HAND_OVER, "All Bars" } }
 			SetOverrideBindingClick(owner, true, HAND_OVER, BACK_BUTTON)
 			for _, action in ipairs(SC.targetActions) do
-				SetOverrideBindingClick(owner, true, action.key, BACK_BUTTON)
-				-- binding, a spell is held: where it goes; editing, what is picked up
-				prompts[#prompts + 1] = { action.key, editing == "BIND_ACTION" and action.label or action.handOver }
+				local words = handOverWords(action, editing)
+				if words then
+					SetOverrideBindingClick(owner, true, action.key, BACK_BUTTON)
+					prompts[#prompts + 1] = { action.key, words }
+				end
 			end
 			notice.Set(prompts)
 			notice:ClearAllPoints()

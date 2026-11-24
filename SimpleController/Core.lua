@@ -7,19 +7,55 @@
 --   AddExtras{ first, bar, keys = fn, copy = fn(parent) }  buttons each on its own key
 --       (keys() gives them by index), their row of play `bar`, a copy of it for the editor
 --   OnEditor(fn(open))  the editor opening and closing (its owner hides its bars of play)
---   AddTargetAction{ key, handOver, label, choose, target = fn(slot), run = fn(slot, thing),
---       fresh = fn() }  somewhere other than a bar slot to put what is held (Wheels: a
---       wheel). In Blizzard's bind screen and Edit Action Bar, bare `key` hands over too
---       (prompt `label` binding, `handOver` editing): binding, its targets are chosen at
---       once; editing, `fresh()`
---       ({ func, params } putting a new thing on the cursor) is held. Holding something,
---       `key` (prompt `label`) lights the slots `target` accepts, fading the rest, the
---       box saying `label` and `choose`; the one pressed gets
---       run(slot, thing), thing = { kind, id, name, icon }, after the editor closes
+--   AddTargetAction{ key, target = fn(slot), run = fn(slot, thing, editing, done), label, choose,
+--       handOver, fresh = fn(), pick = { label, choose } }  somewhere other than a bar
+--       slot (Wheels: a wheel). Holding something, `key` (prompt `label`) lights the slots
+--       `target` accepts, fading the rest, the box saying `label` and `choose`; the one
+--       pressed gets run(slot, thing, editing, done) after the editor closes, thing =
+--       { kind, id, name, icon }, editing: in Edit Action Bars; its shade and hidden bars
+--       of play stay until done() (or EditHolding opens it again). Editing with nothing
+--       held, `key` holds `fresh()` ({ func, params } putting a new thing on the cursor; prompt
+--       `handOver`), or with `pick` chooses a target the same way, run(slot, nil, true).
+--       Bare `key` hands over from Blizzard's screens too: its bind screen with
+--       `handOver` (prompt `label`: its targets are chosen at once), its Edit Action Bar
+--       with `handOver` (`fresh()` held) or `pick` (its targets chosen).
+--   EditHolding({ func, params } | nil)  the editor opened in Edit Action Bars, holding
+--       what func(params) puts on the cursor, or nothing
+--   Prompt(parent, keys)  the buttons that pick a bar, as a frame to put under it
 -- Alone, with nothing using it, it says so at login.
 local _, SC = ...
 
 SimpleController = SC
+
+-- Blizzard's prompt for `keys`, or their names where it has no picture for one (a
+-- paddle: a prompt given one fails). Either answers SetFocused and SetPressable.
+local PROMPTS = { "InputPromptOneIconTemplate", "InputPromptTwoIconTemplate", "InputPromptThreeIconTemplate" }
+local function pictured(key)
+	local ok, textures = pcall(InputIconTextureSetUtility.GetActiveInputIconButtonTextures, key)
+	return ok and textures ~= nil
+end
+function SC.Prompt(parent, keys)
+	local all = PROMPTS[#keys] ~= nil
+	for _, key in ipairs(keys) do all = all and pictured(key) end
+	if all then
+		local prompt = CreateFrame("Frame", nil, parent, PROMPTS[#keys])
+		for i, key in ipairs(keys) do prompt:SetPromptInputIconKey(i, key) end
+		prompt:SetUseDropShadow(true)
+		prompt:RefreshInputPromptSize()
+		return prompt
+	end
+	local prompt = CreateFrame("Frame", nil, parent)
+	prompt:SetSize(1, 1)
+	local names = {}
+	for i, key in ipairs(keys) do names[i] = GetBindingText(key) end
+	local text = prompt:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	text:SetPoint("CENTER")
+	text:SetText(table.concat(names, " + "))
+	-- the prompt's lit and pressable looks: a name has neither
+	function prompt.SetFocused() end
+	function prompt.SetPressable() end
+	return prompt
+end
 SC.bars, SC.onEditor, SC.targetActions = {}, {}, {}
 
 function SC.AddBar(bar) SC.bars[#SC.bars + 1] = bar end
