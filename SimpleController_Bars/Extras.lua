@@ -37,20 +37,20 @@ end
 
 -- Eight round buttons in a row, holding our slots: the suite's own (SimpleController's
 -- Buttons.lua), never Blizzard's action-bar template, whose buttons join Blizzard's
--- shared button lists.
-local function buildRow(name, box)
+-- shared button lists. secure: the row of play, which its secure presses move.
+local function buildRow(name, box, secure)
 	local bar = CB.InBox(CreateFrame("Frame", name, box), box)
 	bar:SetSize(1, 1)
 	local hidden = CreateFrame("Frame", nil, bar)
 	hidden:Hide()
 	local buttons = {}
 	for i = 1, COUNT do
-		local button = SimpleController.ActionButton(bar, "Circle")
+		local button = SimpleController.ActionButton(bar, "Circle", secure)
 		button:SetAction(FIRST + i - 1)
 		buttons[i] = button
 	end
 	bar:Show()
-	local center = CreateFrame("Frame", nil, bar, "SecureHandlerBaseTemplate")
+	local center = CreateFrame("Frame", nil, bar, secure and "SecureHandlerBaseTemplate" or nil)
 	center:SetSize(1, 1)
 	center:SetPoint("CENTER")
 	-- each button's key under it: Blizzard's prompt, or its name where Blizzard has no
@@ -129,7 +129,7 @@ CB.AtLogin(function()
 	if not (CB.ControllerMode() and pageUnit and CB.placed[CB.EXTRAS]) then return end
 	FIRST = CB.placed[CB.EXTRAS].first
 	local bars = pageUnit.actionBars
-	local row = buildRow("SimpleControllerBarsExtras", CB.Mirror(pageUnit))
+	local row = buildRow("SimpleControllerBarsExtras", CB.Mirror(pageUnit), true)
 	local owner = CreateFrame("Frame")
 	local apply = buildCasts(row, owner)
 	-- in Blizzard's editor, a greyed copy beside its bars (Bars.lua's buildGreyed says why)
@@ -140,7 +140,7 @@ CB.AtLogin(function()
 		for _, button in ipairs(greyed.buttons) do button:DesaturateHierarchy(1) end
 		local placer = CreateFrame("Frame", nil, edit)
 		placer:SetScript("OnUpdate", function()
-			if not InCombatLockdown() and edit.PageUnit.actionBars.bottomBar:GetCenter() then
+			if edit.PageUnit.actionBars.bottomBar:GetCenter() then
 				CB.Put(edit.PageUnit.actionBars, greyed.bar, 0, -BELOW_BOTTOM, CB.EXTRAS)
 				placer:SetScript("OnUpdate", nil)
 			end

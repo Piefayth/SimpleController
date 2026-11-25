@@ -8,9 +8,11 @@
 -- 2026-11-24). The base ActionButtonTemplate enters no list (BaseActionButtonMixin_OnLoad,
 -- Blizzard_ActionBar/Shared/ActionButton.lua:1607), as LibActionButton builds on it.
 --
--- SimpleController.ActionButton(parent, shape) -> button; shape "Circle" or "Square".
+-- SimpleController.ActionButton(parent, shape, secure) -> button; shape "Circle" or
+-- "Square"; secure: protected, for a bar of play whose secure press moves it (a copy
+-- in an editor is plain, so it shows and moves in a fight).
 -- button:SetAction(slot), button:SetExpanded(on) (Blizzard's two sizes), and the art
--- the bars use: icon, SlotArt, PushedTexture, Count.
+-- the bars use: icon, SlotArt, PushedTexture, Count, Name.
 local _, SC = ...
 
 local SHAPES = {
@@ -95,6 +97,8 @@ local function refresh(button)
 	button.SlotArt:SetAtlas(emptyArt(button.place))
 	button.SlotArt:SetShown(not has)
 	button.Count:SetText(has and C_ActionBar.GetActionDisplayCount(slot, 9999) or "")
+	-- a macro's name, as Blizzard's buttons show it (UpdateAction, ActionButton.lua)
+	button.Name:SetText(has and C_ActionBar.UsesActionText(slot) and C_ActionBar.GetActionText(slot) or "")
 	button:SetChecked(has and (C_ActionBar.IsCurrentAction(slot) or C_ActionBar.IsAutoRepeatAction(slot)) or false)
 	tint(button)
 	cooldowns(button)
@@ -133,9 +137,9 @@ function methods:SetExpanded(on)
 	if on then outset(self.CheckedTexture, 4) else self.CheckedTexture:SetAllPoints(self) end
 end
 
-function SC.ActionButton(parent, shape)
+function SC.ActionButton(parent, shape, secure)
 	local art = SHAPES[shape]
-	local button = CreateFrame("CheckButton", nil, parent, "ActionButtonTemplate, SecureFrameTemplate") -- protected: the bars' secure press moves it
+	local button = CreateFrame("CheckButton", nil, parent, secure and "ActionButtonTemplate, SecureFrameTemplate" or "ActionButtonTemplate")
 	button:EnableMouse(false)
 	button.shape = art
 	for name, fn in pairs(methods) do button[name] = fn end
@@ -208,14 +212,13 @@ function SC.ActionButton(parent, shape)
 	button.PushedTexture:SetDrawLayer("OVERLAY")
 	if button.Border then button.Border:SetAtlas(art.border) button.Border:Hide() end
 	if button.HotKey then button.HotKey:Hide() end
-	if button.Name then button.Name:Hide() end
 	button.cooldown:SetSwipeTexture(art.mask == "CircleMask" and "Interface\\CharacterFrame\\TempPortraitAlphaMask" or "Interface\\Buttons\\WHITE8X8")
 	button:SetExpanded(false)
 	all[button] = true
 	return button
 end
 
--- SimpleController.ActionBar(parent) -> bar: eight of ours in Blizzard's gamepad bar
+-- SimpleController.ActionBar(parent, name, secure) -> bar: eight of ours (secure as above) in Blizzard's gamepad bar
 -- layout, d-pad squares left and face circles right, with the parts of
 -- GamepadActionBarTemplate the suite uses: actionButtons, Left/Right.ActionButton1-4
 -- (left, top, right, bottom), BackgroundFocus, EditModeFocusBackground and each
@@ -259,7 +262,7 @@ function barMethods:SetActionButtonsSaturation(desaturation)
 	for _, button in ipairs(self.actionButtons) do button.icon:SetDesaturation(desaturation) end
 end
 
-function SC.ActionBar(parent, name)
+function SC.ActionBar(parent, name, secure)
 	local bar = CreateFrame("Frame", name, parent)
 	for key, fn in pairs(barMethods) do bar[key] = fn end
 	bar.actionButtons = {}
@@ -273,7 +276,7 @@ function SC.ActionBar(parent, name)
 		particles:Hide()
 		group.EditModeFocusParticlesSingle = particles
 		for i = 1, 4 do
-			local button = SC.ActionButton(bar, half == "Left" and "Square" or "Circle")
+			local button = SC.ActionButton(bar, half == "Left" and "Square" or "Circle", secure)
 			local glyph = CreateFrame("Frame", nil, button, "InputIconTextureFrameTemplate")
 			glyph:SetSize(15, 15)
 			glyph:SetPoint("TOPRIGHT", 0, half == "Left" and -1 or -3)

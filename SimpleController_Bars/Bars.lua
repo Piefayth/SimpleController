@@ -327,8 +327,8 @@ end
 local function buildFace(chord, unit, prefix)
 	local box = CB.Mirror(unit)
 	local face = {
-		small = CB.InBox(SimpleController.ActionBar(box, prefix .. "Rest" .. chord.setting), box),
-		bar = CB.InBox(SimpleController.ActionBar(box, prefix .. chord.setting), box),
+		small = CB.InBox(SimpleController.ActionBar(box, prefix .. "Rest" .. chord.setting, true), box),
+		bar = CB.InBox(SimpleController.ActionBar(box, prefix .. chord.setting, true), box),
 		shrunk = {},
 	}
 	for _, bar in ipairs({ face.small, face.bar }) do
@@ -422,7 +422,7 @@ local function buildGreyed(edit, groups)
 	CB.OnRelayout(function() placed = false end)
 	local placer = CreateFrame("Frame", nil, edit)
 	placer:SetScript("OnUpdate", function()
-		if not placed and not InCombatLockdown() and unit.actionBars.bottomBar:GetCenter() then
+		if not placed and unit.actionBars.bottomBar:GetCenter() then
 			placed = place(unit.actionBars, groups, function(chord) return faces[chord] end)
 		end
 	end)

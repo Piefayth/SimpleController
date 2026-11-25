@@ -14,12 +14,14 @@
 -- under it. Binding: a press puts the spell there and the screen closes. Editing: a
 -- press picks up, the next puts down (what was there is then held, as Blizzard's
 -- does), Square unbinds what is held, Circle puts it back or closes. An extra button's
--- own key is its slot. Out of combat only, as Blizzard's.
+-- own key is its slot. Out of a fight only: a fight refuses an addon's PickupAction
+-- (measured 2026-11-24), so it closes as one begins.
 --
 -- Nothing of Blizzard's is written or called: a plain frame of ours takes the pad's
 -- buttons while open (enabled once out of combat, as the controller keyboard's
 -- catcher); the bars of play are only read (their slots and places); spells move on the
--- game's cursor (PickupAction, PlaceAction), as Blizzard's editor moves them.
+-- game's cursor (PickupAction, PlaceAction), as Blizzard's editor moves them. Our
+-- copies are the plain kind, nothing protected.
 local _, SC = ...
 
 local HAND_OVER = "PAD3"
@@ -210,7 +212,6 @@ local function build()
 	for _, row in ipairs(SC.bars) do entries[#entries + 1] = { pair = barPair(row.keys), row = row, keys = row.keys } end
 	if SC.extras then extrasCopy = { row = SC.extras, copy = SC.extras.copy(screen) } end
 end
-SC.Prebuild = build
 
 local function setAll()
 	local played = GamepadMainActionBarFrame.PageUnit.actionBars
@@ -445,7 +446,6 @@ end
 local catching = false
 SC.AfterCombat(function()
 	catcher:SetScript("OnGamePadButtonDown", function(_, key)
-		if InCombatLockdown() then return end
 		if extraSlot[key] then return act(extraSlot[key]) end
 		local index = tIndexOf(SC.KEYS, key)
 		if index and lit and lit.slots[index] then return act(lit.slots[index]) end
@@ -540,68 +540,90 @@ function SC.EditHolding(pickup)
 end
 
 -- The extension keys, while Blizzard's bind screen or Edit Action Bar is open (picking,
--- not holding: its Back then undoes): bare Square for all bars, and each target
--- action's (bare Cross: Wheels; Triangle too in Edit Action Bar, where it is free, but
--- not in the bind screen, where it is Blizzard's own Edit Action Bar), which its editor
--- leaves free (no trigger: the top bar, whose face buttons bind nothing; Circle is its
--- Back). Each closes Blizzard's through its Back and opens ours, in the same mode.
--- their prompts: Blizzard's footer look, at the other end of its info box from its own
-local notice = legend(UIParent)
-notice:Hide()
-local owner = CreateFrame("Frame")
-local armed, bringing, handing, wasDown = false, nil, nil, {}
+-- not holding: its Back then undoes) and no trigger or shoulder is held (then they are
+-- slots of Blizzard's bars): bare Square for all bars, and each target action's (bare
+-- Cross: Wheels; Triangle too in Edit Action Bar, where it is free, but not in the bind
+-- screen, where it is Blizzard's own Edit Action Bar). Each is bound to the Blizzard
+-- button behind its Back prompt, so a press closes Blizzard's, untainted, and ours
+-- opens in the same mode. Blizzard's gamepad UI sets its own bindings of those keys
+-- again at every change (its binding stack: opening, a mode, a trigger), and the last
+-- set wins, so ours is set again whenever the key is not ours. Out of a fight only (an
+-- addon's binding is refused there), and their prompts show only then.
+local BOUND = "CLICK " .. BACK_BUTTON .. ":LeftButton"
 -- a target action's prompt in Blizzard's screen, or nil where it is not handed over
 local function handOverWords(action, editing)
 	if editing == "BIND_ACTION" then return action.handOver and action.label end
 	return action.handOver or action.pick and action.pick.label
 end
+SC.Prebuild = build
+
+-- their prompts: Blizzard's footer look, at the other end of its info box from its own
+local notice = legend(UIParent)
+notice:Hide()
+local owner = CreateFrame("Frame")
+-- armed: the keys bound now, { key = { words, action } }, nil while none
+local armed, armedAs, bringing, handing, wasDown = nil, nil, nil, nil, {}
+local function disarm()
+	if not armed then return end
+	ClearOverrideBindings(owner)
+	notice:Hide()
+	armed, armedAs = nil, nil
+end
+-- a fight's first moment still takes our calls
+local fightBegins = CreateFrame("Frame")
+fightBegins:RegisterEvent("PLAYER_REGEN_DISABLED")
+fightBegins:SetScript("OnEvent", disarm)
 local watcher = CreateFrame("Frame")
 watcher:SetScript("OnUpdate", function()
+	if InCombatLockdown() then return end
+	-- a press of an armed key: its binding has closed Blizzard's by now
+	for key, each in pairs(armed or {}) do
+		local down = IsKeyDown(key)
+		if down and not wasDown[key] then handing = { bringing = bringing, action = each.action } end
+		wasDown[key] = down
+	end
 	local edit = GamepadActionBarEditFrame
 	local shown = edit ~= nil and edit:IsShown()
 	local editing = shown and edit.activeMode
-	-- bare: with a trigger or shoulder held, these are slots of Blizzard's bars
-	local bare = true
-	for _, key in ipairs(SC.CHORD_KEYS) do bare = bare and not IsKeyDown(key) end
-	-- All Bars only with bars of ours to show (Bars installed): Wheels alone hands over
-	-- by its own keys
-	local allBars = #SC.bars > 0 or SC.extras ~= nil
-	local keys = allBars and { { key = HAND_OVER } } or {}
-	for _, action in ipairs(SC.targetActions) do
-		if handOverWords(action, editing) then keys[#keys + 1] = { key = action.key, action = action } end
-	end
-	for _, each in ipairs(keys) do
-		local down = IsKeyDown(each.key)
-		if down and not wasDown[each.key] and armed and bare then handing = { bringing = bringing, action = each.action } end
-		wasDown[each.key] = down
-	end
 	if handing and not shown then
+		disarm()
 		start(handing.bringing, handing.action)
 		handing = nil
 	end
-	local want = (editing == "BIND_ACTION" or editing == "SELECT_ACTION_TO_PICKUP") and not InCombatLockdown()
-		and _G[BACK_BUTTON] ~= nil and SC.Used() and editing
-	if want ~= armed then
-		ClearOverrideBindings(owner)
+	local bare = true
+	for _, key in ipairs(SC.CHORD_KEYS) do bare = bare and not IsKeyDown(key) end
+	local want = bare and (editing == "BIND_ACTION" or editing == "SELECT_ACTION_TO_PICKUP")
+		and _G[BACK_BUTTON] ~= nil and SC.Used() and editing or nil
+	if want ~= armedAs then
+		disarm()
 		if want then
+			armed, armedAs = {}, want
 			local prompts = {}
-			if allBars then
-				prompts[1] = { HAND_OVER, "All Bars" }
-				SetOverrideBindingClick(owner, true, HAND_OVER, BACK_BUTTON)
+			local function add(key, words, action)
+				armed[key] = { action = action }
+				wasDown[key] = IsKeyDown(key)
+				prompts[#prompts + 1] = { key, words }
 			end
+			-- All Bars only with bars of ours to show (Bars installed): Wheels alone
+			-- hands over by its own keys
+			if #SC.bars > 0 or SC.extras ~= nil then add(HAND_OVER, "All Bars") end
 			for _, action in ipairs(SC.targetActions) do
 				local words = handOverWords(action, editing)
-				if words then
-					SetOverrideBindingClick(owner, true, action.key, BACK_BUTTON)
-					prompts[#prompts + 1] = { action.key, words }
-				end
+				if words then add(action.key, words, action) end
 			end
 			notice.Set(prompts)
 			notice:ClearAllPoints()
 			notice:SetPoint("TOPRIGHT", editing == "BIND_ACTION" and edit.BindingInfoFrame or edit.EditActionBarsInfoFrame, "BOTTOMRIGHT")
+			notice:Show()
 		end
-		notice:SetShown(want and true or false)
-		armed = want
+	end
+	-- set again, all together, once any is not ours
+	for key in pairs(armed or {}) do
+		if GetBindingAction(key, true) ~= BOUND then
+			ClearOverrideBindings(owner)
+			for each in pairs(armed) do SetOverrideBindingClick(owner, true, each, BACK_BUTTON) end
+			break
+		end
 	end
 	bringing = armed and editing == "BIND_ACTION" and edit.pickupFunc
 		and { func = edit.pickupFunc, params = edit.pickupParams or {} } or nil

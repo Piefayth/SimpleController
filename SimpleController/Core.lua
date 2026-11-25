@@ -89,14 +89,16 @@ local afterCombat = {}
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_ENTERING_WORLD") -- after every addon's PLAYER_LOGIN, where they register
-events:SetScript("OnEvent", function(_, event, initial)
+events:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_ENTERING_WORLD" then
-		if initial and not SC.Used() then
-			SC.Say("Simple Controller does nothing on its own: Simple Controller: Bars or Wheels uses it.")
+		-- once a UI session, at a login or a reload alike
+		events:UnregisterEvent("PLAYER_ENTERING_WORLD")
+		if not SC.Used() then
+			return SC.Say("Simple Controller does nothing on its own: Simple Controller: Bars or Wheels uses it.")
 		end
 		-- the editor's copies made under the loading screen: made at its first opening,
 		-- they cost a frame you could feel
-		if initial and SC.Used() then SC.AfterCombat(SC.Prebuild) end
+		SC.AfterCombat(SC.Prebuild)
 		return
 	end
 	local queued = afterCombat
