@@ -189,12 +189,20 @@ function CB.Offset(row)
 	return db[row.setting .. "X"] or 0, db[row.setting .. "Y"] or 0
 end
 
--- Whether our button labels show (the Layout settings), and whether each button shows
--- its button's glyph: Blizzard's own "Show Button Prompts" in Edit Mode, read.
-function CB.ShowPrompts() return SimpleControllerBarsDB.prompts ~= false end
+-- Whether each button shows its key: Blizzard's own "Show Button Prompts" in Edit Mode,
+-- read, for our bars' buttons and the extra buttons alike.
+function CB.ButtonPrompts() return GamepadMainActionBarFrame ~= nil and GamepadMainActionBarFrame.showButtonIcons == true end
 function CB.ButtonIcons(bar)
-	if GamepadMainActionBarFrame and GamepadMainActionBarFrame.showButtonIcons then bar:ShowButtonIcons() else bar:HideButtonIcons() end
+	if CB.ButtonPrompts() then bar:ShowButtonIcons() else bar:HideButtonIcons() end
 end
+
+-- Blizzard's own "Show Highlight" in Edit Mode, read: whether the active bar is lit,
+-- and its trigger prompt glows.
+function CB.Highlight() return GamepadMainActionBarFrame ~= nil and GamepadMainActionBarFrame.showHighlight == true end
+
+-- Blizzard's own Compact in Edit Mode (its controller bars), read: one bar shows, the
+-- one the held chord fires.
+function CB.Compact() return GamepadMainActionBarFrame ~= nil and GamepadMainActionBarFrame.useCompactLayout == true end
 
 -- Laying out again after a Layout change: each part adds its own.
 local relayouts = {}

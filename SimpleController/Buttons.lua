@@ -72,6 +72,11 @@ local function tint(button)
 	if color then button.icon:SetVertexColor(color[1], color[2], color[3]) else button.icon:SetVertexColor(1, 1, 1) end
 end
 
+-- cooldown numbers follow the game's own option, as Blizzard's buttons do
+local function numbers(button)
+	button.cooldown:SetHideCountdownNumbers(not C_CVar.GetCVarBool("countdownForCooldowns"))
+end
+
 local function cooldowns(button)
 	local slot = button.slot
 	if not (slot and C_ActionBar.HasAction(slot)) then
@@ -213,6 +218,7 @@ function SC.ActionButton(parent, shape, secure)
 	if button.Border then button.Border:SetAtlas(art.border) button.Border:Hide() end
 	if button.HotKey then button.HotKey:Hide() end
 	button.cooldown:SetSwipeTexture(art.mask == "CircleMask" and "Interface\\CharacterFrame\\TempPortraitAlphaMask" or "Interface\\Buttons\\WHITE8X8")
+	numbers(button)
 	button:SetExpanded(false)
 	all[button] = true
 	return button
@@ -335,6 +341,7 @@ local handlers = {
 	SPELLS_CHANGED = function() each(refresh) end,
 	BAG_UPDATE_DELAYED = function() each(refresh) end,
 	PLAYER_TARGET_CHANGED = function() each(tint) end,
+	CVAR_UPDATE = function(name) if name == "countdownForCooldowns" then each(numbers) end end,
 }
 for event in pairs(handlers) do events:RegisterEvent(event) end
 -- another controller's symbols on the empty face slots

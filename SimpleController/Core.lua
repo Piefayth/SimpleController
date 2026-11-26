@@ -22,10 +22,99 @@
 --   EditHolding({ func, params } | nil)  the editor opened in Edit Action Bars, holding
 --       what func(params) puts on the cursor, or nothing
 --   Prompt(parent, keys)  the buttons that pick a bar, as a frame to put under it
+--   Glow(prompt, on)  its buttons' glow, as Blizzard's active bar shows its triggers'
 -- Alone, with nothing using it, it says so at login.
 local _, SC = ...
 
 SimpleController = SC
+
+-- The glow Blizzard plays on a trigger's prompt as its bar becomes the active one
+-- (Blizzard_GamepadActionBars' ActionBarFocusFX.lua and ModifierGlow templates): a
+-- flash over the icon, by icon set, and a glow behind it that settles faint and stays
+-- while lit. Every button of a prompt glows; only the triggers have a flash picture,
+-- so any other button flashes as its own lit icon, added over itself.
+local GLOW_TOP = {
+	PADLTRIGGER = { Generic = "gamepad-actionbar-fx-triggerL-top", Letters = "gamepad-actionbar-fx-triggerL-top",
+		Shapes = "gamepad-actionbar-fx-triggerL-top-ps", Reverse = "gamepad-actionbar-fx-triggerL-top-switch" },
+	PADRTRIGGER = { Generic = "gamepad-actionbar-fx-triggerR-top", Letters = "gamepad-actionbar-fx-triggerR-top",
+		Shapes = "gamepad-actionbar-fx-triggerR-top-ps", Reverse = "gamepad-actionbar-fx-triggerR-top-switch" },
+}
+local glows = {} -- prompt -> { lit, each button's pieces }
+
+local function fade(group, texture, from, to, duration)
+	local alpha = group:CreateAnimation("Alpha")
+	alpha:SetTarget(texture)
+	alpha:SetFromAlpha(from)
+	alpha:SetToAlpha(to)
+	alpha:SetDuration(duration)
+end
+
+local function buildGlow(icon, key)
+	local top = CreateFrame("Frame", nil, icon)
+	top:SetAllPoints()
+	top.texture = top:CreateTexture(nil, "OVERLAY")
+	if GLOW_TOP[key] then
+		top.texture:SetSize(62, 62)
+		top.texture:SetPoint("CENTER")
+	else
+		-- the lit icon Blizzard shows focused (InputIconTexture's ActiveTexture), where it is
+		top.texture:SetAllPoints(icon.ActiveTexture)
+		top.texture:SetBlendMode("ADD")
+	end
+	top.start = top:CreateAnimationGroup()
+	top.start:SetToFinalAlpha(true)
+	fade(top.start, top.texture, 1, 0, 0.3)
+	top.start:SetScript("OnFinished", function() top:Hide() end)
+	top:Hide()
+	local behind = CreateFrame("Frame", nil, icon)
+	behind:SetSize(88, 88)
+	behind:SetPoint("CENTER")
+	behind.texture = behind:CreateTexture(nil, "BACKGROUND")
+	behind.texture:SetAllPoints()
+	behind.texture:SetAtlas("gamepad-actionbar-fx-trigger-behind")
+	behind.start = behind:CreateAnimationGroup()
+	behind.start:SetToFinalAlpha(true)
+	fade(behind.start, behind.texture, 0.7, 0.2, 0.5)
+	behind.stop = behind:CreateAnimationGroup()
+	behind.stop:SetToFinalAlpha(true)
+	fade(behind.stop, behind.texture, 0.2, 0, 0.33)
+	behind.stop:SetScript("OnFinished", function() behind:Hide() end)
+	behind:Hide()
+	return { key = key, icon = icon, top = top, behind = behind }
+end
+
+-- The flash's picture now: the trigger's by icon set, else the icon's own lit one.
+local function flashAtlas(piece)
+	local set = GLOW_TOP[piece.key]
+	if set then return set[InputDeviceIconSetManager:GetActiveInputDeviceIconSet()] end
+	return piece.icon.ActiveTexture:GetAtlas()
+end
+
+-- Lights or dims `prompt`'s glows (a prompt of names: nothing).
+function SC.Glow(prompt, on)
+	local glow = glows[prompt]
+	if not glow or glow.lit == on then return end
+	glow.lit = on
+	for _, piece in ipairs(glow) do
+		local top, behind = piece.top, piece.behind
+		if on then
+			behind.stop:Stop()
+			-- under the bars' buttons, as Blizzard's is (its frame level 1)
+			behind:SetFrameLevel(1)
+			behind:Show()
+			behind.start:Play()
+			if top.texture:SetAtlas(flashAtlas(piece) or "") then
+				top:Show()
+				top.start:Play()
+			end
+		else
+			top.start:Stop()
+			top:Hide()
+			behind.start:Stop()
+			behind.stop:Play()
+		end
+	end
+end
 
 -- Blizzard's prompt for `keys`, or their names where it has no picture for one (a
 -- paddle: a prompt given one fails). Either answers SetFocused and SetPressable.
@@ -39,7 +128,12 @@ function SC.Prompt(parent, keys)
 	for _, key in ipairs(keys) do all = all and pictured(key) end
 	if all then
 		local prompt = CreateFrame("Frame", nil, parent, PROMPTS[#keys])
-		for i, key in ipairs(keys) do prompt:SetPromptInputIconKey(i, key) end
+		local glow = { lit = false }
+		for i, key in ipairs(keys) do
+			prompt:SetPromptInputIconKey(i, key)
+			glow[i] = buildGlow(prompt.InputIcons[i], key)
+		end
+		glows[prompt] = glow
 		prompt:SetUseDropShadow(true)
 		prompt:RefreshInputPromptSize()
 		return prompt

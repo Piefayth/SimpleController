@@ -96,15 +96,11 @@ local function reach(size, bottom)
 	return options
 end
 
--- The Layout page: the button labels, then each bar on, its heading and its sliders.
+-- The Layout page: each bar on, its heading and its sliders.
 local function layoutPage(db)
 	local category, page = Settings.RegisterVerticalLayoutCategory("Simple Controller: Bars Layout")
 	local function heading(text) page:AddInitializer(CreateSettingsListSectionHeaderInitializer(text)) end
-	local prompts = Settings.RegisterAddOnSetting(category, "SCBARS_PROMPTS", "prompts", db,
-		Settings.VarType.Boolean, "Button labels", Settings.Default.True)
-	prompts:SetValueChangedCallback(CB.Relayout)
-	Settings.CreateCheckbox(category, prompts,
-		"The buttons to press, under each of these bars and extra buttons. Blizzard's own bars' labels are set in Edit Mode (Show Button Prompts), which needs a mouse.")
+
 	-- no controller interface: no bars to move (Bars.lua says so at login)
 	local unit = GamepadMainActionBarFrame and GamepadMainActionBarFrame.PageUnit
 	local bottom = unit and unit.actionBars.bottomBar

@@ -2,8 +2,10 @@
 -- shoulder with L2, R2 or both, in any order. Each is a setting (Settings.lua),
 -- applied at the next reload.
 --
--- While a shoulder is held Blizzard shows its targeting bar. A watcher parented to
--- that bar takes the eight keys for as long as it is visible. The player's own chords
+-- While a shoulder is held its binder takes the eight keys: from its targeting bar
+-- showing (Blizzard shows it as the shoulder goes down) until the pad no longer holds
+-- the shoulder, asked again as any of Blizzard's bars shows or hides and at each press
+-- (Compact hides the targeting bar while a trigger is held with it). The player's own chords
 -- (Custom 1-4, docs/proposals/pressed-chords.md) take them the same way while a
 -- starter (a paddle, a stick click) is held: each starter is bound, written from the
 -- chords set, to a button of ours whose secure press binds them and whose release,
@@ -11,7 +13,7 @@
 -- the pad (GetGamePadState, which secure code may call in a fight) for the chord, of
 -- every chord on, whose buttons are exactly those held, the rule the editor picks bars
 -- by. One: that chord, its slot, after an up-click on the hostile bar's cross spends a
--- shoulder's tab-target. None: the targeting bar's own button, or nothing.
+-- shoulder's tab-target. None: the button of Blizzard's active bar, as its own press.
 --
 -- The bars only display. A Blizzard-template button made by an addon is refused
 -- the cast (ADDON_ACTION_FORBIDDEN), so a plain secure button casts. A macro in a
@@ -26,6 +28,9 @@
 -- A shoulder's chords sit beside the bottom bar, small at rest: the first beside it,
 -- the second outward of the first, the third above the second (above the first is
 -- Blizzard's own trigger bar). A held chord shows big in its place.
+-- With Blizzard's Compact on (Edit Mode, its controller bars) only the bar the held chord
+-- fires shows, where Blizzard shows its one: ours hide at rest, and a held chord's shows
+-- big over Blizzard's bars, which are held invisible while it is held.
 -- A chord is not targeting: the game's targeting mode is off while one is held, and the
 -- fade Blizzard gives the other bars during targeting is held off the same way.
 --
@@ -36,14 +41,13 @@ local _, CB = ...
 
 local CONSUME = "GamepadMainActionBarFramePageUnitHostileTargetingActionBarActionButton8"
 local SHOULDERS = {
-	{ tag = "L", targeting = "friendlyTargetingBar", dir = -1 },
-	{ tag = "R", targeting = "hostileTargetingBar", dir = 1 },
+	{ tag = "L", key = "PADLSHOULDER", targeting = "friendlyTargetingBar", dir = -1 },
+	{ tag = "R", key = "PADRSHOULDER", targeting = "hostileTargetingBar", dir = 1 },
 }
 -- Half an expanded bar's width twice: ours and the bottom bar never touch.
 local BESIDE_BOTTOM = 270
 local BELOW_LEFT = 88
 local GAP = 8 -- between a shoulder's bars
-CB.ACTIVE_LEVEL = 5 -- the frame level Blizzard raises the bar a trigger lights to
 CB.LIT_BARS = { "leftBar", "rightBar", "stanceBar", "bottomBar" }
 
 -- Each button's place in the pad's state (its buttons from 1; ButtonBindingToIndex
@@ -95,9 +99,10 @@ end
 
 -- A group's eight buttons (a shoulder's, or the player's own chords'), one per key,
 -- each picking among `all`, every chord on, by `keys` (their buttons), so a press
--- reaches the same chord whichever group has the keys. Returns the snippets that bind
--- the keys to them and free them again, run by `binder`.
-local function buildFires(group, all, keys, binder)
+-- reaches the same chord whichever group has the keys; with none, the button of the
+-- active one of `blizzard` (Blizzard's bars; none for the player's own chords). Returns
+-- the snippets that bind the keys to them and free them again, run by `binder`.
+local function buildFires(group, all, keys, binder, blizzard)
 	local wants = {}
 	for n, chord in ipairs(all) do
 		wants[n] = CB.Pattern(keys, function(key) return tContains(chord.keys, key) end)
@@ -111,7 +116,12 @@ local function buildFires(group, all, keys, binder)
 		fire:RegisterForClicks("AnyDown", "AnyUp")
 		fire:SetAttribute("useOnKeyDown", true)
 		fire:SetAttribute("type", "macro")
-		fire:SetAttribute("cb-pass", group.pass(i))
+		for b, bar in ipairs(blizzard) do
+			local pass = bar.actionButtons[i]:GetName()
+			fire:SetFrameRef("bar" .. b, bar)
+			fire:SetAttribute("cb-pass" .. b, ("/click %s LeftButton 1\n/click %s LeftButton"):format(pass, pass))
+		end
+		if group.targeting then fire:SetFrameRef("binder", binder) end
 		for k, each in ipairs(keys) do fire:SetAttribute("cb-index" .. k, indexOf(each)) end
 		for n, chord in ipairs(all) do
 			fire:SetAttribute("cb-chord" .. n, consume(chord) .. ("/click %s LeftButton 1"):format(castFor(chord, i)))
@@ -119,7 +129,7 @@ local function buildFires(group, all, keys, binder)
 			fire:SetAttribute("cb-want" .. n, wants[n])
 			fire:SetFrameRef("watch" .. n, chord.watch)
 		end
-		SecureHandlerWrapScript(fire, "OnClick", binder, CB.FireSnippet(i, #all, #keys))
+		SecureHandlerWrapScript(fire, "OnClick", binder, CB.FireSnippet(i, #all, #keys, #blizzard))
 		group.fires[i] = fire
 		bind[#bind + 1] = ("self:SetBindingClick(true, %q, %q, 'LeftButton')"):format(key, name)
 	end
@@ -133,16 +143,28 @@ local function buildFires(group, all, keys, binder)
 	return table.concat(bind, "\n"), free
 end
 
--- A shoulder's: while its targeting bar shows; with no chord, that bar's own button.
+-- A shoulder's: while it is held (CB.SYNC), asked as each of Blizzard's bars shows or
+-- hides.
 local function buildShoulderKeys(shoulder, bars, all, keys)
-	local binder = CreateFrame("Frame", nil, bars[shoulder.targeting], "SecureHandlerBaseTemplate")
-	shoulder.pass = function(i)
-		local pass = bars[shoulder.targeting].actionButtons[i]:GetName()
-		return ("/click %s LeftButton 1\n/click %s LeftButton"):format(pass, pass)
+	local blizzard = {}
+	for _, bar in pairs(bars) do
+		if bar.actionButtons and bar.actionButtons[8] then blizzard[#blizzard + 1] = bar end
 	end
-	local bind, free = buildFires(shoulder, all, keys, binder)
-	SecureHandlerWrapScript(binder, "OnShow", binder, bind)
-	SecureHandlerWrapScript(binder, "OnHide", binder, free)
+	local binder = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
+	shoulder.binder = binder
+	local bind, free = buildFires(shoulder, all, keys, binder, blizzard)
+	binder:SetFrameRef("targeting", bars[shoulder.targeting])
+	binder:SetAttribute("cb-shoulder", indexOf(shoulder.key))
+	binder:SetAttribute("cb-bind", bind)
+	binder:SetAttribute("cb-free", free)
+	binder:SetAttribute("cb-sync", CB.SYNC)
+	for _, bar in ipairs(blizzard) do
+		local proxy = CreateFrame("Frame", nil, bar, "SecureHandlerBaseTemplate")
+		proxy:SetFrameRef("binder", binder)
+		for _, script in ipairs({ "OnShow", "OnHide" }) do
+			SecureHandlerWrapScript(proxy, script, proxy, [[ self:GetFrameRef("binder"):RunAttribute("cb-sync") ]])
+		end
+	end
 end
 
 local function starterOf(group, key)
@@ -158,8 +180,7 @@ end
 -- buttons are, to win over the gamepad's own hold on a button (L3's auto run).
 local function buildPressedKeys(group, all, keys, owner)
 	local binder = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
-	group.pass = function() return "" end
-	local bind, free = buildFires(group, all, keys, binder)
+	local bind, free = buildFires(group, all, keys, binder, {})
 	binder:SetAttribute("cb-bind", bind)
 	binder:SetAttribute("cb-free", free)
 	local starters = {}
@@ -213,20 +234,25 @@ local function place(bars, groups, faces)
 	local _, ly = bars.leftBar:GetCenter()
 	if not by or not ly then return false end
 	local y = ly * bars.leftBar:GetEffectiveScale() / bars.bottomBar:GetEffectiveScale() - by - BELOW_LEFT
+	local compact = CB.Compact()
 	for _, group in ipairs(groups) do
 		for n, chord in ipairs(group.chords) do
 			local face = faces(chord)
 			local x, up
-			if group.pressed then
+			if compact then
+				x, up = 0, 0
+			elseif group.pressed then
 				x, up = (n - (#group.chords + 1) / 2) * (face.small:GetWidth() + GAP), ABOVE
 			else
 				x = group.dir * (BESIDE_BOTTOM + (n > 1 and face.small:GetWidth() + GAP or 0))
 				up = n > 2 and face.small:GetHeight() + GAP or 0
 			end
 			for _, bar in ipairs({ face.small, face.bar }) do
-				CB.Put(bars, bar, x, y + up, chord)
-				CB.ButtonIcons(bar)
+				if compact then CB.Put(bars, bar, 0, 0) else CB.Put(bars, bar, x, y + up, chord) end
 			end
+			-- prompts on the held bar only, as Blizzard's (ShowHighlight): never on one at
+			-- rest, nor on the editor's greyed copies (one bar for both)
+			if face.bar ~= face.small then CB.ButtonIcons(face.bar) end
 		end
 	end
 	return true
@@ -350,11 +376,15 @@ end
 
 -- Held: big, Blizzard's lit bar shrunk. Otherwise small.
 local function showFace(face, held, bars)
-	face.prompt:SetShown(CB.ShowPrompts())
+	-- the chord's buttons under its bar, as Blizzard's trigger prompts are, always; in
+	-- Compact only the held one's, as all sit in one place
+	face.prompt:SetShown(held or not CB.Compact())
+	SimpleController.Glow(face.prompt, held and CB.Highlight())
 	if held then
 		face.prompt:SetFocused()
 		face.hideBig:Stop()
 		face.hideSmall:Play()
+		if CB.Compact() then return end
 		for _, key in ipairs(CB.LIT_BARS) do
 			if bars[key]:GetFrameLevel() == CB.ACTIVE_LEVEL then
 				playAll(face.shrunk[key])
@@ -365,7 +395,7 @@ local function showFace(face, held, bars)
 	end
 	face.prompt:SetPressable()
 	face.hideBig:Play()
-	face.hideSmall:Stop()
+	if CB.Compact() then face.hideSmall:Play() else face.hideSmall:Stop() end
 	for _, key in ipairs(CB.LIT_BARS) do
 		stopAll(face.shrunk[key])
 		stopAll(hiderOf(bars[key]))
@@ -382,7 +412,7 @@ local function show(group, held, bars)
 	group.held = held
 	if held and not was then
 		if group.targeting then C_GamepadTargeting.Disable() end
-		playAll(group.unfaded)
+		if not CB.Compact() then playAll(group.unfaded) end
 	elseif was and not held then
 		stopAll(group.unfaded)
 	end
@@ -391,10 +421,10 @@ local function show(group, held, bars)
 end
 
 -- the chord of `group` held now, of every chord on (`held`): a shoulder's only while
--- its targeting bar has the keys
-local function heldIn(group, held, bars)
+-- its binder has the keys
+local function heldIn(group, held)
 	if not (held and tContains(group.chords, held)) then return nil end
-	if group.targeting and not bars[group.targeting]:IsShown() then return nil end
+	if group.binder and not group.binder:GetAttribute("cb-bound") then return nil end
 	return held
 end
 
@@ -482,17 +512,17 @@ CB.AtLogin(function()
 		showShoulder(group, nil, bars, function(chord) return chord.face end)
 	end
 	local function ours(chord) return chord.face end
+	local function relayout()
+		place(bars, groups, ours)
+		for _, group in ipairs(groups) do showShoulder(group, group.held, bars, ours) end
+	end
 	place(bars, groups, ours)
 	if GamepadActionBarEditFrame then buildGreyed(GamepadActionBarEditFrame, groups) end
 	-- in the editor: each chord's keys, slots and its bars of play, where it is drawn
 	for _, chord in ipairs(all) do
 		SimpleController.AddBar({ keys = chord.keys, first = chord.first, small = chord.face.small, big = chord.face.bar })
 	end
-	local function replace() CB.AfterCombat(function() place(bars, groups, ours) end) end
-	CB.OnRelayout(function()
-		place(bars, groups, ours)
-		for _, group in ipairs(groups) do showShoulder(group, group.held, bars, ours) end
-	end)
+	CB.OnRelayout(relayout)
 	local function resync() CB.AfterCombat(function() syncMacros(groups, all) end) end
 	syncMacros(groups, all)
 	local events = CreateFrame("Frame")
@@ -500,13 +530,34 @@ CB.AtLogin(function()
 		events:RegisterEvent(event)
 	end
 	events:SetScript("OnEvent", function(_, event)
-		if event == "PLAYER_ENTERING_WORLD" or event == "EDIT_MODE_LAYOUTS_UPDATED" then replace() end
+		if event == "PLAYER_ENTERING_WORLD" or event == "EDIT_MODE_LAYOUTS_UPDATED" then CB.Relayout() end
 		if event ~= "EDIT_MODE_LAYOUTS_UPDATED" then resync() end
 	end)
 
+	-- Compact: Blizzard's bars of play held invisible while a chord of ours is held (each
+	-- trigger prompt of theirs is inside its bar, so goes with it)
+	local gone, hidden = {}, false
+	for _, key in ipairs({ "topBar", "possessBar", "leftBar", "rightBar", "bottomBar", "stanceBar" }) do
+		if bars[key] then gone[#gone + 1] = heldAlpha(bars[key], 0) end
+	end
+	local compact = CB.Compact()
 	local driver = CreateFrame("Frame")
 	driver:SetScript("OnUpdate", function()
 		local held = SimpleController.Exact(all, padDown())
-		for _, group in ipairs(groups) do show(group, heldIn(group, held, bars), bars) end
+		local any = false
+		for _, group in ipairs(groups) do
+			show(group, heldIn(group, held), bars)
+			any = any or group.held ~= nil
+		end
+		-- Blizzard's setting changes only in Edit Mode, out of a fight: read, never hooked
+		if CB.Compact() ~= compact then
+			compact = CB.Compact()
+			CB.Relayout()
+		end
+		local hide = compact and any
+		if hide ~= hidden then
+			hidden = hide
+			if hide then playAll(gone) else stopAll(gone) end
+		end
 	end)
 end)

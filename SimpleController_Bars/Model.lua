@@ -168,14 +168,17 @@ function CB.Pattern(keys, isDown)
 	return table.concat(held)
 end
 
--- The secure snippet on key `i`'s button for a shoulder with `count` chords
--- (OnClick, wrapped: self, button, down), among `count` chords told apart by `keys`
--- buttons. Down: the chord whose buttons are exactly those the pad holds
--- (GetGamePadState, its buttons at cb-index<k> for the k-th key; chord n's pattern is
--- cb-want<n>) presses its look (watch<n>) and casts its slot, or its macro's text;
--- none: cb-pass (the targeting bar's own button). Up: the chord pressed lets its look
--- go, and the click stops there.
-function CB.FireSnippet(i, count, keys)
+CB.ACTIVE_LEVEL = 5 -- the frame level Blizzard raises its active bar to (ActionBar.lua)
+
+-- The secure snippet on key `i`'s button for a group (OnClick, wrapped: self, button,
+-- down), among `count` chords told apart by `keys` buttons. Down: the chord whose
+-- buttons are exactly those the pad holds (GetGamePadState, its buttons at cb-index<k>
+-- for the k-th key; chord n's pattern is cb-want<n>) presses its look (watch<n>) and
+-- casts its slot, or its macro's text. None: what Blizzard's press would do, the
+-- button at cb-pass<b> of whichever of its `bars` (bar<b>) is active, or nothing; then
+-- a shoulder's binder (ref binder) asks again whether it keeps the keys. Up: the chord
+-- pressed lets its look go, and the click stops there.
+function CB.FireSnippet(i, count, keys, bars)
 	return ([[
 		if not down then
 			local held = self:GetAttribute("cb-held")
@@ -187,16 +190,38 @@ function CB.FireSnippet(i, count, keys)
 		for k = 1, %d do
 			held = held .. (state and state.buttons[self:GetAttribute("cb-index" .. k)] and "1" or "0")
 		end
-		local text = self:GetAttribute("cb-pass")
 		for n = 1, %d do
 			if self:GetAttribute("cb-want" .. n) == held then
 				self:GetFrameRef("watch" .. n):RunAttribute("cb-press", %d)
 				self:SetAttribute("cb-held", n)
 				local macro = GetActionInfo(self:GetAttribute("cb-slot" .. n)) == "macro" and self:GetAttribute("cb-macro" .. n)
-				text = macro or self:GetAttribute("cb-chord" .. n)
+				self:SetAttribute("macrotext", macro or self:GetAttribute("cb-chord" .. n))
+				return
+			end
+		end
+		local text = ""
+		for b = 1, %d do
+			local bar = self:GetFrameRef("bar" .. b)
+			if bar:IsVisible() and bar:GetFrameLevel() == %d then
+				text = self:GetAttribute("cb-pass" .. b)
 				break
 			end
 		end
 		self:SetAttribute("macrotext", text)
-	]]):format(i, keys, count, i)
+		local binder = self:GetFrameRef("binder")
+		if binder then binder:RunAttribute("cb-sync") end
+	]]):format(i, keys, count, i, bars, CB.ACTIVE_LEVEL)
 end
+
+-- A shoulder's binder (cb-sync, run by it): it has the eight keys while the shoulder's
+-- targeting bar shows or the pad holds the shoulder (cb-shoulder, its place in the pad's
+-- state). Compact hides the targeting bar while a trigger is held with the shoulder,
+-- so its showing alone is not enough; Blizzard's bars showing and hiding, and each
+-- press, ask again.
+CB.SYNC = [[
+	local state = GetGamePadState()
+	local bound = (self:GetFrameRef("targeting"):IsShown() or (state and state.buttons[self:GetAttribute("cb-shoulder")])) and true or false
+	if bound == (self:GetAttribute("cb-bound") or false) then return end
+	self:SetAttribute("cb-bound", bound)
+	self:RunAttribute(bound and "cb-bind" or "cb-free")
+]]

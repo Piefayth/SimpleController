@@ -73,7 +73,7 @@ local function layRow(row, bound)
 	local shown = {}
 	for i, button in ipairs(row.buttons) do
 		if bound[i] then shown[#shown + 1] = i else button:SetParent(row.hidden) end
-		local labelled = CB.ShowPrompts() and bound[i] ~= nil
+		local labelled = CB.ButtonPrompts() and bound[i] ~= nil
 		local pictured = labelled and CB.HasPicture(bound[i])
 		row.prompts[i]:SetShown(pictured)
 		row.names[i]:SetShown(labelled and not pictured)
